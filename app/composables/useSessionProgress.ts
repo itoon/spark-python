@@ -3,27 +3,37 @@ import { pythonSession1, type Locale, type ProgressionMode } from '~/content/pyt
 export interface SessionProgress {
   language: Locale
   mode: ProgressionMode
-  currentLevelId: string
+  guidedLevelId: string
+  exploreLevelId: string
   masteredLevelIds: string[]
 }
 
 const STORAGE_KEY = 'cv-spark-python-session-1-progress-v1'
 
 function createDefaultProgress(): SessionProgress {
+  const firstLevelId = pythonSession1.levels[0]?.id || 'level-1'
   return {
     language: 'en',
     mode: 'guided',
-    currentLevelId: pythonSession1.levels[0]?.id || 'level-1',
+    guidedLevelId: firstLevelId,
+    exploreLevelId: firstLevelId,
     masteredLevelIds: [],
   }
 }
 
-function isValidProgress(value: unknown): value is SessionProgress {
+function getSavedLevelIds(value: Record<string, unknown>, fallback: string) {
+  const guidedLevelId = typeof value.guidedLevelId === 'string'
+    ? value.guidedLevelId
+    : typeof value.currentLevelId === 'string' ? value.currentLevelId : fallback
+  const exploreLevelId = typeof value.exploreLevelId === 'string' ? value.exploreLevelId : guidedLevelId
+  return { guidedLevelId, exploreLevelId }
+}
+
+function isValidProgress(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<SessionProgress>
+  const candidate = value as Record<string, unknown>
   return (candidate.language === 'en' || candidate.language === 'th')
     && (candidate.mode === 'guided' || candidate.mode === 'explore')
-    && typeof candidate.currentLevelId === 'string'
     && Array.isArray(candidate.masteredLevelIds)
     && candidate.masteredLevelIds.every((id) => typeof id === 'string')
 }
@@ -43,10 +53,13 @@ export function useSessionProgress() {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
       if (isValidProgress(saved)) {
         const knownLevelIds = new Set(pythonSession1.levels.map((level) => level.id))
+        const defaults = createDefaultProgress()
+        const savedLevelIds = getSavedLevelIds(saved, defaults.guidedLevelId)
         progress.value = {
-          ...createDefaultProgress(),
+          ...defaults,
           ...saved,
-          currentLevelId: knownLevelIds.has(saved.currentLevelId) ? saved.currentLevelId : createDefaultProgress().currentLevelId,
+          guidedLevelId: knownLevelIds.has(savedLevelIds.guidedLevelId) ? savedLevelIds.guidedLevelId : defaults.guidedLevelId,
+          exploreLevelId: knownLevelIds.has(savedLevelIds.exploreLevelId) ? savedLevelIds.exploreLevelId : defaults.exploreLevelId,
           masteredLevelIds: saved.masteredLevelIds.filter((id) => knownLevelIds.has(id)),
         }
       }
@@ -62,6 +75,11 @@ export function useSessionProgress() {
   }
 
   function setMode(mode: ProgressionMode) {
+    if (mode === 'explore') progress.value.exploreLevelId = progress.value.guidedLevelId
+    if (mode === 'guided') {
+      const guidedIndex = pythonSession1.levels.findIndex((level) => level.id === progress.value.guidedLevelId)
+      if (!isLevelUnlockedAt(guidedIndex, 'guided')) progress.value.guidedLevelId = getFirstUnlockedLevelId()
+    }
     progress.value.mode = mode
     save()
   }
@@ -69,7 +87,8 @@ export function useSessionProgress() {
   function selectLevel(levelId: string) {
     const index = pythonSession1.levels.findIndex((level) => level.id === levelId)
     if (index < 0 || !isLevelUnlocked(index)) return false
-    progress.value.currentLevelId = levelId
+    if (progress.value.mode === 'explore') progress.value.exploreLevelId = levelId
+    else progress.value.guidedLevelId = levelId
     save()
     return true
   }
@@ -78,18 +97,29 @@ export function useSessionProgress() {
     return progress.value.masteredLevelIds.includes(levelId)
   }
 
-  function isLevelUnlocked(index: number) {
-    if (progress.value.mode === 'explore' || index === 0) return true
+  function isLevelUnlockedAt(index: number, mode: ProgressionMode) {
+    if (mode === 'explore' || index === 0) return true
     return isLevelMastered(pythonSession1.levels[index - 1]?.id || '')
   }
 
+  function isLevelUnlocked(index: number) {
+    return isLevelUnlockedAt(index, progress.value.mode)
+  }
+
+  function getFirstUnlockedLevelId() {
+    const index = pythonSession1.levels.findIndex((_, levelIndex) => isLevelUnlockedAt(levelIndex, 'guided'))
+    return pythonSession1.levels[index < 0 ? 0 : index]?.id || createDefaultProgress().guidedLevelId
+  }
+
   function markLevelMastered(levelId: string) {
+    if (progress.value.mode === 'explore') return
     if (!isLevelMastered(levelId)) progress.value.masteredLevelIds.push(levelId)
     save()
   }
 
   function reset() {
-    progress.value = createDefaultProgress()
+    const { language, mode } = progress.value
+    progress.value = { ...createDefaultProgress(), language, mode }
     if (import.meta.client) localStorage.removeItem(STORAGE_KEY)
   }
 
@@ -100,6 +130,7 @@ export function useSessionProgress() {
 
   return {
     progress,
+    activeLevelId: computed(() => progress.value.mode === 'explore' ? progress.value.exploreLevelId : progress.value.guidedLevelId),
     hydrate,
     setLanguage,
     setMode,
@@ -110,4 +141,3 @@ export function useSessionProgress() {
     reset,
   }
 }
-

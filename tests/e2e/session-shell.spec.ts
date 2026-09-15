@@ -31,6 +31,7 @@ test('guided progression locks later levels and Explore all levels unlocks inspe
   await page.getByTestId('level-4').click()
   await expect(page.getByTestId('level-4')).toHaveAttribute('aria-current', 'step')
   await expect(page.getByRole('heading', { name: 'Output accuracy' })).toBeVisible()
+  await expect(page).toHaveURL(/level=level-4/)
 })
 
 test('language and progression settings persist across refresh', async ({ page }) => {
@@ -46,7 +47,7 @@ test('language and progression settings persist across refresh', async ({ page }
   await expect(page.getByTestId('mode-explore')).toBeChecked()
 })
 
-test('Reset Session Progress returns the learner to the first locked path', async ({ page }) => {
+test('Reset Session Progress clears the selection while preserving settings', async ({ page }) => {
   await openSession(page)
   await page.getByTestId('session-settings').click()
   await page.getByTestId('mode-explore').check()
@@ -57,6 +58,7 @@ test('Reset Session Progress returns the learner to the first locked path', asyn
   await page.getByTestId('reset-progress').click()
   await page.reload()
   await expect(page.getByTestId('level-1')).toHaveAttribute('aria-current', 'step')
-  await expect(page.getByTestId('level-2')).toBeDisabled()
-  await expect(page.getByTestId('level-4')).toBeDisabled()
+  await expect(page.getByTestId('level-4')).toBeEnabled()
+  await page.getByTestId('session-settings').click()
+  await expect(page.getByTestId('mode-explore')).toBeChecked()
 })

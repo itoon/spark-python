@@ -7,6 +7,35 @@ export interface LocalizedText {
   th: string
 }
 
+export interface PlayContent {
+  instruction: LocalizedText
+  example: string
+}
+
+export interface PredictContent {
+  prompt: LocalizedText
+  interaction: 'choice' | 'order'
+  options: LocalizedText[]
+  correctOptionIds?: string[]
+}
+
+export interface ExplanationStep {
+  target: string
+  body: LocalizedText
+}
+
+export interface MissionTestCase {
+  id: string
+  input: string[]
+  expectedOutput?: string
+  expectedError?: { type: string; line?: number }
+}
+
+export interface MasteryRule {
+  requiredStages: SessionStage[]
+  requiresPassingTest: boolean
+}
+
 export interface SessionLevelContent {
   id: string
   number: number
@@ -14,6 +43,13 @@ export interface SessionLevelContent {
   objective: LocalizedText
   availableStages: SessionStage[]
   preview: LocalizedText
+  play?: PlayContent
+  predict?: PredictContent
+  hints?: LocalizedText[]
+  explanationSteps?: ExplanationStep[]
+  starterCode?: string
+  testCases?: MissionTestCase[]
+  mastery?: MasteryRule
 }
 
 export interface PythonSessionContent {
@@ -80,4 +116,3 @@ export const pythonSession1: PythonSessionContent = {
     },
   ],
 }
-
