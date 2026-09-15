@@ -82,7 +82,7 @@ export const pythonSession1: PythonSessionContent = {
       },
       play: { instruction: { en: 'Watch Python send a message to the screen.', th: 'ดู Python ส่งข้อความไปที่หน้าจอ' }, example: 'print("Hello World")' },
       predict: { prompt: { en: 'What will this program show?', th: 'โปรแกรมนี้จะแสดงอะไร?' }, interaction: 'choice', options: [{ id: 'message', label: { en: 'Hello World', th: 'Hello World' } }, { id: 'nothing', label: { en: 'Nothing', th: 'ไม่แสดงอะไร' } }], correctOptionIds: ['message'] },
-      hints: [{ en: 'Look at the text inside print().', th: 'ดูข้อความที่อยู่ใน print()' }],
+      hints: [{ en: 'Look at the text inside print().', th: 'ดูข้อความที่อยู่ใน print()' }, { en: 'The message must match the expected words and spaces exactly.', th: 'ข้อความต้องตรงกับคำและช่องว่างที่กำหนดทุกตัว' }],
       explanationSteps: [],
       starterCode: 'print("Hello World")',
       testCases: [{ id: 'hello-world', input: [], expectedOutput: 'Hello World' }],

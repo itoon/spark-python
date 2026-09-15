@@ -4,9 +4,11 @@ import { getSessionUiCopy } from '~/content/session-ui-copy'
 
 useHead({ title: pythonSession1.title.en })
 
-const { progress, activeLevelId, setLanguage, setMode, selectLevel, isLevelMastered, isLevelUnlocked, reset, hydrate } = useSessionProgress()
+const { progress, activeLevelId, setLanguage, setMode, selectLevel, isLevelMastered, isLevelUnlocked, markLevelMastered, reset, hydrate } = useSessionProgress()
 const settingsOpen = ref(false)
 const activeStage = ref<SessionStage>('play')
+const completedStages = ref<SessionStage[]>([])
+const passingTestCompleted = ref(false)
 const firstLevel = pythonSession1.levels[0]!
 const route = useRoute()
 const router = useRouter()
@@ -27,18 +29,48 @@ function getLocalizedText(value: { en: string; th: string }) {
   return value[progress.value.language]
 }
 
+function isStageCompleted(stage: SessionStage) {
+  return completedStages.value.includes(stage)
+}
+
+function isStageUnlocked(stage: SessionStage) {
+  if (progress.value.mode === 'explore' || isLevelMastered(currentLevel.value.id)) return true
+  const stageIndex = currentLevel.value.availableStages.indexOf(stage)
+  if (stageIndex <= 0) return true
+  return isStageCompleted(currentLevel.value.availableStages[stageIndex - 1]!)
+}
+
+function markStageCompleted(stage: SessionStage) {
+  if (!isStageCompleted(stage)) completedStages.value.push(stage)
+  if (stage === 'test') passingTestCompleted.value = true
+  const level = currentLevel.value
+  const stagesComplete = level.mastery.requiredStages.every((requiredStage) => isStageCompleted(requiredStage))
+  const testRequirementSatisfied = !level.mastery.requiresPassingTest || passingTestCompleted.value
+  if (level.id === 'level-1' && stagesComplete && testRequirementSatisfied) markLevelMastered(level.id)
+}
+
+function resetLevelActivity() {
+  activeStage.value = currentLevel.value.availableStages[0] || 'play'
+  completedStages.value = []
+  passingTestCompleted.value = false
+}
+
 function chooseLevel(levelId: string, index: number) {
   if (!isLevelUnlocked(index)) return
-  selectLevel(levelId)
-  activeStage.value = pythonSession1.levels[index]?.availableStages[0] || 'play'
+  if (selectLevel(levelId)) resetLevelActivity()
 }
 
 function chooseStage(stage: SessionStage) {
-  if (currentLevel.value.availableStages.includes(stage)) activeStage.value = stage
+  if (currentLevel.value.availableStages.includes(stage) && isStageUnlocked(stage)) activeStage.value = stage
 }
 
-function resetProgress() {
-  if (confirm(copy.value.resetConfirmation)) reset()
+async function resetProgress() {
+  if (confirm(copy.value.resetConfirmation)) {
+    reset()
+    selectLevel(firstLevel.id)
+    resetLevelActivity()
+    await router.replace({ query: { ...route.query, level: firstLevel.id } })
+  }
 }
 
 function syncLevelToUrl(levelId: string) {
@@ -51,8 +83,15 @@ onMounted(() => {
   const requestedLevelId = typeof route.query.level === 'string' ? route.query.level : null
   const requestedIndex = requestedLevelId ? pythonSession1.levels.findIndex((level) => level.id === requestedLevelId) : -1
   if (requestedLevelId && requestedIndex >= 0 && isLevelUnlocked(requestedIndex)) selectLevel(requestedLevelId)
+  resetLevelActivity()
   urlIsReady.value = true
   syncLevelToUrl(activeLevelId.value)
+})
+
+watch(activeLevelId, (levelId, previousLevelId) => {
+  if (levelId !== previousLevelId) resetLevelActivity()
+  if (!urlIsReady.value) return
+  syncLevelToUrl(levelId)
 })
 
 watch(() => route.query.level, (levelId) => {
@@ -64,10 +103,6 @@ watch(() => route.query.level, (levelId) => {
   }
 })
 
-watch(activeLevelId, (levelId) => {
-  if (!urlIsReady.value) return
-  syncLevelToUrl(levelId)
-})
 </script>
 
 <template>
@@ -93,10 +128,11 @@ watch(activeLevelId, (levelId) => {
     <section v-if="currentLevel" class="mission-layout">
       <div class="mission-main">
         <div class="mission-heading"><div><span class="journey-eyebrow">LEVEL {{ currentLevel.number }}</span><h2>{{ getLocalizedText(currentLevel.title) }}</h2><p>{{ getLocalizedText(currentLevel.objective) }}</p></div><span v-if="isLevelMastered(currentLevel.id)" class="mastery-pill">✓ {{ copy.masteredLabel }}</span><span v-else class="current-pill">{{ copy.current }}</span></div>
-        <div class="stage-stepper" :aria-label="copy.missionSteps"><button v-for="stage in currentLevel.availableStages" :key="stage" type="button" class="stage-step" :class="{ active: activeStage === stage }" :data-testid="`stage-${stage}`" @click="chooseStage(stage)"><span>{{ stageLabels[stage][progress.language] }}</span><i /></button></div>
-        <article class="mission-card"><div class="mission-card-icon">{{ activeStage === 'play' ? '▶' : activeStage === 'predict' ? '?' : activeStage === 'code' ? '</>' : '✓' }}</div><div><span class="journey-eyebrow">{{ stageLabels[activeStage][progress.language] }}</span><h3>{{ copy.missionPreview }}</h3><p>{{ getLocalizedText(currentLevel.preview) }}</p><div class="mission-callout">{{ copy.stageReady }}</div></div></article>
+        <div class="stage-stepper" :aria-label="copy.missionSteps"><button v-for="stage in currentLevel.availableStages" :key="stage" type="button" class="stage-step" :class="{ active: activeStage === stage, completed: isStageCompleted(stage) }" :disabled="!isStageUnlocked(stage)" :data-testid="`stage-${stage}`" @click="chooseStage(stage)"><span>{{ isStageCompleted(stage) ? '✓ ' : '' }}{{ stageLabels[stage][progress.language] }}</span><i /></button></div>
+        <SessionLevelOneMission v-if="currentLevel.id === 'level-1'" :level="currentLevel" :locale="progress.language" :active-stage="activeStage" :completed-stages="completedStages" :mastered="isLevelMastered(currentLevel.id)" @stage-completed="markStageCompleted" @update:active-stage="activeStage = $event" />
+        <article v-else class="mission-card"><div class="mission-card-icon">{{ activeStage === 'play' ? '▶' : activeStage === 'predict' ? '?' : activeStage === 'code' ? '</>' : '✓' }}</div><div><span class="journey-eyebrow">{{ stageLabels[activeStage][progress.language] }}</span><h3>{{ copy.missionPreview }}</h3><p>{{ getLocalizedText(currentLevel.preview) }}</p><div class="mission-callout">{{ copy.stageReady }}</div></div></article>
       </div>
-      <aside class="session-side-card"><span class="journey-eyebrow">{{ copy.objective }}</span><h3>{{ getLocalizedText(currentLevel.objective) }}</h3><div class="side-divider" /><span class="journey-eyebrow">{{ copy.missionSteps }}</span><ol><li v-for="stage in currentLevel.availableStages" :key="stage" :class="{ active: activeStage === stage }"><span>{{ stageLabels[stage][progress.language] }}</span><i /></li></ol><div class="side-note"><span>✦</span><p>{{ progress.mode === 'guided' ? copy.guidedHelp : copy.exploreHelp }}</p></div></aside>
+      <aside class="session-side-card"><span class="journey-eyebrow">{{ copy.objective }}</span><h3>{{ getLocalizedText(currentLevel.objective) }}</h3><div class="side-divider" /><span class="journey-eyebrow">{{ copy.missionSteps }}</span><ol><li v-for="stage in currentLevel.availableStages" :key="stage" :class="{ active: activeStage === stage, completed: isStageCompleted(stage) }"><span>{{ isStageCompleted(stage) ? '✓ ' : '' }}{{ stageLabels[stage][progress.language] }}</span><i /></li></ol><div class="side-note"><span>✦</span><p>{{ progress.mode === 'guided' ? copy.guidedHelp : copy.exploreHelp }}</p></div></aside>
     </section>
     <section v-else class="empty-level"><h2>{{ copy.chooseLevel }}</h2></section>
   </main>

@@ -129,6 +129,7 @@ async function init() {
       editor = monaco.editor.create(container.value, {
         model,
         theme: 'codeventure-dark',
+        ariaLabel: 'Python code editor',
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 15,

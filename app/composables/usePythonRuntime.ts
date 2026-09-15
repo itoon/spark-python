@@ -164,6 +164,7 @@ onmessage = async (event) => {
 
 export function usePythonRuntime() {
   const status = ref('loading')
+  const error = ref<string | null>(null)
   const lastResult = ref<PythonRunResult | null>(null)
   const worker = shallowRef<Worker | null>(null)
   const workerReady = ref(false)
@@ -175,6 +176,7 @@ export function usePythonRuntime() {
     worker.value?.terminate()
     workerReady.value = false
     status.value = 'loading'
+    error.value = null
     const url = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }))
     const nextWorker = new Worker(url)
     worker.value = nextWorker
@@ -187,6 +189,7 @@ export function usePythonRuntime() {
       if (message.type === 'boot-error') {
         workerReady.value = false
         status.value = 'failed'
+        error.value = message.error || 'Python runtime failed to start.'
       }
       if (message.type === 'result' && message.requestId === activeRequest) {
         status.value = 'ready'
@@ -196,6 +199,7 @@ export function usePythonRuntime() {
     nextWorker.onerror = () => {
       workerReady.value = false
       status.value = 'failed'
+      error.value = 'Python runtime worker failed.'
     }
     nextWorker.addEventListener('message', () => URL.revokeObjectURL(url), { once: true })
   }
@@ -229,5 +233,5 @@ export function usePythonRuntime() {
   }
 
   onBeforeUnmount(() => worker.value?.terminate())
-  return { status, lastResult, start, run, stop }
+  return { status, error, lastResult, start, run, stop }
 }
