@@ -17,7 +17,7 @@ const copy = computed(() => getSessionUiCopy(language.value))
         <span class="brand-mark" aria-hidden="true">✦</span>
         <span><strong>CodeVenture</strong><small>Spark Journey</small></span>
       </NuxtLink>
-      <span class="journey-status"><i /> {{ copy.status }}</span>
+      <span class="journey-status"><i /> {{ copy.hubStatus }}</span>
     </header>
 
     <section class="journey-hero">

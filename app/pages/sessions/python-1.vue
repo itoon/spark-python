@@ -55,6 +55,15 @@ onMounted(() => {
   syncLevelToUrl(activeLevelId.value)
 })
 
+watch(() => route.query.level, (levelId) => {
+  if (!urlIsReady.value || typeof levelId !== 'string' || levelId === activeLevelId.value) return
+  const index = pythonSession1.levels.findIndex((level) => level.id === levelId)
+  if (index >= 0 && isLevelUnlocked(index)) {
+    selectLevel(levelId)
+    activeStage.value = pythonSession1.levels[index]?.availableStages[0] || 'play'
+  }
+})
+
 watch(activeLevelId, (levelId) => {
   if (!urlIsReady.value) return
   syncLevelToUrl(levelId)
@@ -84,11 +93,11 @@ watch(activeLevelId, (levelId) => {
     <section v-if="currentLevel" class="mission-layout">
       <div class="mission-main">
         <div class="mission-heading"><div><span class="journey-eyebrow">LEVEL {{ currentLevel.number }}</span><h2>{{ getLocalizedText(currentLevel.title) }}</h2><p>{{ getLocalizedText(currentLevel.objective) }}</p></div><span v-if="isLevelMastered(currentLevel.id)" class="mastery-pill">✓ {{ copy.masteredLabel }}</span><span v-else class="current-pill">{{ copy.current }}</span></div>
-        <div class="stage-stepper" :aria-label="copy.steps"><button v-for="stage in currentLevel.availableStages" :key="stage" type="button" class="stage-step" :class="{ active: activeStage === stage }" :data-testid="`stage-${stage}`" @click="chooseStage(stage)"><span>{{ stageLabels[stage][progress.language] }}</span><i /></button></div>
+        <div class="stage-stepper" :aria-label="copy.missionSteps"><button v-for="stage in currentLevel.availableStages" :key="stage" type="button" class="stage-step" :class="{ active: activeStage === stage }" :data-testid="`stage-${stage}`" @click="chooseStage(stage)"><span>{{ stageLabels[stage][progress.language] }}</span><i /></button></div>
         <article class="mission-card"><div class="mission-card-icon">{{ activeStage === 'play' ? '▶' : activeStage === 'predict' ? '?' : activeStage === 'code' ? '</>' : '✓' }}</div><div><span class="journey-eyebrow">{{ stageLabels[activeStage][progress.language] }}</span><h3>{{ copy.missionPreview }}</h3><p>{{ getLocalizedText(currentLevel.preview) }}</p><div class="mission-callout">{{ copy.stageReady }}</div></div></article>
       </div>
       <aside class="session-side-card"><span class="journey-eyebrow">{{ copy.objective }}</span><h3>{{ getLocalizedText(currentLevel.objective) }}</h3><div class="side-divider" /><span class="journey-eyebrow">{{ copy.missionSteps }}</span><ol><li v-for="stage in currentLevel.availableStages" :key="stage" :class="{ active: activeStage === stage }"><span>{{ stageLabels[stage][progress.language] }}</span><i /></li></ol><div class="side-note"><span>✦</span><p>{{ progress.mode === 'guided' ? copy.guidedHelp : copy.exploreHelp }}</p></div></aside>
     </section>
-    <section v-else class="empty-level"><h2>{{ copy.choose }}</h2></section>
+    <section v-else class="empty-level"><h2>{{ copy.chooseLevel }}</h2></section>
   </main>
 </template>

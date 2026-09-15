@@ -32,6 +32,8 @@ test('guided progression locks later levels and Explore all levels unlocks inspe
   await expect(page.getByTestId('level-4')).toHaveAttribute('aria-current', 'step')
   await expect(page.getByRole('heading', { name: 'Output accuracy' })).toBeVisible()
   await expect(page).toHaveURL(/level=level-4/)
+  await page.reload()
+  await expect(page.getByTestId('level-4')).toHaveAttribute('aria-current', 'step')
 })
 
 test('language and progression settings persist across refresh', async ({ page }) => {

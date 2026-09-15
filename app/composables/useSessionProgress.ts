@@ -9,6 +9,11 @@ export interface SessionProgress {
 }
 
 const STORAGE_KEY = 'cv-spark-python-session-1-progress-v1'
+type SavedProgress = Pick<SessionProgress, 'language' | 'mode' | 'masteredLevelIds'> & {
+  guidedLevelId?: string
+  exploreLevelId?: string
+  currentLevelId?: string
+}
 
 function createDefaultProgress(): SessionProgress {
   const firstLevelId = pythonSession1.levels[0]?.id || 'level-1'
@@ -21,7 +26,7 @@ function createDefaultProgress(): SessionProgress {
   }
 }
 
-function getSavedLevelIds(value: Record<string, unknown>, fallback: string) {
+function getSavedLevelIds(value: SavedProgress, fallback: string) {
   const guidedLevelId = typeof value.guidedLevelId === 'string'
     ? value.guidedLevelId
     : typeof value.currentLevelId === 'string' ? value.currentLevelId : fallback
@@ -29,9 +34,9 @@ function getSavedLevelIds(value: Record<string, unknown>, fallback: string) {
   return { guidedLevelId, exploreLevelId }
 }
 
-function isValidProgress(value: unknown): value is Record<string, unknown> {
+function isValidProgress(value: unknown): value is SavedProgress {
   if (!value || typeof value !== 'object') return false
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Partial<SavedProgress>
   return (candidate.language === 'en' || candidate.language === 'th')
     && (candidate.mode === 'guided' || candidate.mode === 'explore')
     && Array.isArray(candidate.masteredLevelIds)
