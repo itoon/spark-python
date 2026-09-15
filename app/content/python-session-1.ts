@@ -29,11 +29,26 @@ export interface MissionTestCase {
   input: string[]
   expectedOutput?: string
   expectedError?: { type: string; line?: number }
+  source?: 'current' | 'play'
 }
 
 export interface MasteryRule {
   requiredStages: SessionStage[]
   requiresPassingTest: boolean
+  requiredTestIds?: string[]
+}
+
+export interface InvestigationStep {
+  id: string
+  prompt: LocalizedText
+  options: Array<{ id: string; label: LocalizedText }>
+  correctOptionId: string
+  hint: LocalizedText
+}
+
+export interface InvestigationContent {
+  title: LocalizedText
+  steps: InvestigationStep[]
 }
 
 export interface SessionLevelContent {
@@ -44,6 +59,7 @@ export interface SessionLevelContent {
   availableStages: SessionStage[]
   preview: LocalizedText
   play: PlayContent
+  errorExplanation?: LocalizedText
   predict: PredictContent
   hints: LocalizedText[]
   explanationSteps: ExplanationStep[]
@@ -99,12 +115,30 @@ export const pythonSession1: PythonSessionContent = {
         th: 'อ่าน error จริงจาก Python อธิบายความหมาย และแก้โค้ดที่ผิด',
       },
       play: { instruction: { en: 'Look closely at a broken print statement.', th: 'สังเกต print statement ที่มีบางอย่างผิด' }, example: 'print("Hello World)' },
+      errorExplanation: { en: 'SyntaxError means Python could not read the code using its grammar rules.', th: 'SyntaxError หมายถึง Python อ่านโค้ดตามกฎ syntax ไม่ได้' },
       predict: { prompt: { en: 'What kind of problem do you predict?', th: 'คุณคาดว่าจะเกิดปัญหาประเภทใด?' }, interaction: 'choice', options: [{ id: 'syntax', label: { en: 'A syntax error', th: 'syntax error' } }, { id: 'output', label: { en: 'Only a different output', th: 'แค่ output ต่างกัน' } }], correctOptionIds: ['syntax'] },
       hints: [{ en: 'Compare the opening and closing quotes.', th: 'เปรียบเทียบเครื่องหมายคำพูดเปิดและปิด' }],
-      explanationSteps: [],
+      explanationSteps: [
+        { target: '#level-2-broken-code', body: { en: 'This line starts a string with a quote, but the string never closes.', th: 'บรรทัดนี้เริ่ม string ด้วยเครื่องหมายคำพูด แต่ไม่มีเครื่องหมายปิด' } },
+        { target: '#level-2-error-output', body: { en: 'Python reports the real error. SyntaxError means the code breaks Python grammar rules.', th: 'Python รายงาน error จริง SyntaxError หมายถึงโค้ดผิดกฎไวยากรณ์ของ Python' } },
+        { target: '#investigation-evidence', body: { en: 'Use the error type and line number as evidence while investigating.', th: 'ใช้ประเภท error และหมายเลขบรรทัดเป็นหลักฐานระหว่างการสืบหา' } },
+        { target: '#level-2-repair-code', body: { en: 'The repair is to close the string before the closing parenthesis.', th: 'วิธีแก้คือเติมเครื่องหมายปิด string ก่อนวงเล็บปิด' } },
+      ],
       starterCode: 'print("Hello World)',
-      testCases: [{ id: 'missing-quote', input: [], expectedError: { type: 'SyntaxError', line: 1 } }],
-      mastery: { requiredStages: ['play', 'predict', 'code', 'test'], requiresPassingTest: true },
+      investigation: {
+        title: { en: 'Investigate the error', th: 'สืบหาสาเหตุของ error' },
+        steps: [
+          { id: 'meaning', prompt: { en: 'What does this error tell us?', th: 'error นี้กำลังบอกอะไรเรา?' }, options: [{ id: 'correct', label: { en: 'The code breaks Python syntax rules.', th: 'โค้ดผิดกฎ syntax ของ Python' } }, { id: 'wrong', label: { en: 'The computer is too slow.', th: 'คอมพิวเตอร์ทำงานช้าเกินไป' } }], correctOptionId: 'correct', hint: { en: 'Syntax is the set of rules for writing code.', th: 'Syntax คือกฎสำหรับการเขียนโค้ด' } },
+          { id: 'location', prompt: { en: 'Where should we look first?', th: 'เราควรเริ่มดูที่ตรงไหน?' }, options: [{ id: 'correct', label: { en: 'Line 1, where Python points to the problem.', th: 'บรรทัดที่ 1 ที่ Python ชี้ไปยังปัญหา' } }, { id: 'wrong', label: { en: 'The browser address bar.', th: 'แถบที่อยู่ของ browser' } }], correctOptionId: 'correct', hint: { en: 'The error includes a file and line location.', th: 'error จะบอกตำแหน่งไฟล์และบรรทัด' } },
+          { id: 'search', prompt: { en: 'Which curated search phrase is useful?', th: 'คำค้นที่มีประโยชน์คืออะไร?' }, options: [{ id: 'correct', label: { en: 'Python SyntaxError missing quote', th: 'Python SyntaxError missing quote' } }, { id: 'wrong', label: { en: 'How to make my laptop faster', th: 'ทำให้ laptop เร็วขึ้นอย่างไร' } }], correctOptionId: 'correct', hint: { en: 'Search using the error name and the clue you found.', th: 'ค้นด้วยชื่อ error และ clue ที่พบ' } },
+          { id: 'solution', prompt: { en: 'How can we fix this line?', th: 'เราจะแก้บรรทัดนี้อย่างไร?' }, options: [{ id: 'correct', label: { en: 'Add the missing closing quote.', th: 'เติมเครื่องหมายคำพูดปิดที่หายไป' } }, { id: 'wrong', label: { en: 'Delete the whole print statement.', th: 'ลบ print statement ทั้งบรรทัด' } }], correctOptionId: 'correct', hint: { en: 'A string needs a matching quote at both ends.', th: 'string ต้องมีเครื่องหมายคำพูดคู่กันทั้งสองด้าน' } },
+        ],
+      },
+      testCases: [
+        { id: 'missing-quote', input: [], expectedError: { type: 'SyntaxError', line: 1 }, source: 'play' },
+        { id: 'repaired-output', input: [], expectedOutput: 'Hello World', source: 'current' },
+      ],
+      mastery: { requiredStages: ['play', 'predict', 'code', 'test'], requiresPassingTest: true, requiredTestIds: ['missing-quote', 'repaired-output'] },
     },
     {
       id: 'level-3',

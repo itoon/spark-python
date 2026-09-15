@@ -1,5 +1,7 @@
 <script lang="ts">
 let sharedCompletionProvider: any = null
+let sharedMonaco: any = null
+let sharedMonacoPromise: Promise<any> | null = null
 </script>
 
 <script setup lang="ts">
@@ -74,12 +76,19 @@ function updateSuggestionSettings(enabled: boolean) {
 
 async function init() {
   try {
-    await loadScript('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js')
-    const amdRequire = (window as any).require
-    amdRequire.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } })
-    amdRequire(['vs/editor/editor.main'], () => {
-      monaco = (window as any).monaco
-      monaco.editor.defineTheme('codeventure-dark', {
+    if (!sharedMonacoPromise) {
+      sharedMonacoPromise = loadScript('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js').then(() => new Promise((resolve, reject) => {
+        const amdRequire = (window as any).require
+        if (!amdRequire) return reject(new Error('Monaco loader did not expose require.'))
+        amdRequire.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } })
+        amdRequire(['vs/editor/editor.main'], () => {
+          sharedMonaco = (window as any).monaco
+          resolve(sharedMonaco)
+        })
+      }))
+    }
+    monaco = await sharedMonacoPromise
+    monaco.editor.defineTheme('codeventure-dark', {
         base: 'vs-dark',
         inherit: true,
         rules: [
@@ -104,10 +113,10 @@ async function init() {
           'editorSuggestWidget.border': '#1C4275',
           'editorSuggestWidget.selectedBackground': '#123B79',
         },
-      })
+    })
 
-      if (!sharedCompletionProvider) {
-        sharedCompletionProvider = monaco.languages.registerCompletionItemProvider('python', {
+    if (!sharedCompletionProvider) {
+      sharedCompletionProvider = monaco.languages.registerCompletionItemProvider('python', {
           triggerCharacters: ['.', ' '],
           provideCompletionItems: (completionModel: any, position: any) => {
             const query = completionModel.getWordUntilPosition(position).word.toLowerCase()
@@ -122,29 +131,28 @@ async function init() {
               }] : [],
             }
           },
-        })
-      }
-
-      model = createModel(props.filename, props.modelValue)
-      editor = monaco.editor.create(container.value, {
-        model,
-        theme: 'codeventure-dark',
-        ariaLabel: 'Python code editor',
-        automaticLayout: true,
-        minimap: { enabled: false },
-        fontSize: 15,
-        lineHeight: 23,
-        glyphMargin: true,
-        roundedSelection: true,
-        padding: { top: 10 },
-        suggest: { showWords: false, showSnippets: false },
-        quickSuggestions: props.autoSuggestionsEnabled,
-        suggestOnTriggerCharacters: props.autoSuggestionsEnabled,
-        tabSize: 4,
       })
-      editor.onDidChangeModelContent(() => emit('update:modelValue', editor.getValue()))
-      highlight(props.highlightLine)
+    }
+
+    model = createModel(props.filename, props.modelValue)
+    editor = monaco.editor.create(container.value, {
+      model,
+      theme: 'codeventure-dark',
+      ariaLabel: 'Python code editor',
+      automaticLayout: true,
+      minimap: { enabled: false },
+      fontSize: 15,
+      lineHeight: 23,
+      glyphMargin: true,
+      roundedSelection: true,
+      padding: { top: 10 },
+      suggest: { showWords: false, showSnippets: false },
+      quickSuggestions: props.autoSuggestionsEnabled,
+      suggestOnTriggerCharacters: props.autoSuggestionsEnabled,
+      tabSize: 4,
     })
+    editor.onDidChangeModelContent(() => emit('update:modelValue', editor.getValue()))
+    highlight(props.highlightLine)
   } catch (error) {
     console.error(error)
   }

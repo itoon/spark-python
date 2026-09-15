@@ -12,6 +12,18 @@ async function enableExploreMode(page: Page) {
   await page.getByTestId('session-settings').click()
 }
 
+async function completeLevelOne(page: Page) {
+  await page.getByTestId('play-run').click()
+  await page.getByTestId('continue-to-predict').click()
+  await page.getByTestId('predict-option-message').check()
+  await page.getByTestId('predict-submit').click()
+  await page.getByTestId('continue-to-code').click()
+  await page.getByTestId('run-code').click()
+  await page.getByTestId('continue-to-test').click()
+  await page.getByTestId('test-code').click()
+  await expect(page.getByTestId('mastery-banner')).toBeVisible()
+}
+
 test('learner can enter Python Session 1 from the Spark Journey hub', async ({ page }) => {
   await page.goto('/spark-journey')
 
@@ -171,4 +183,74 @@ test('Level 1 Run prompts for input and resumes execution', async ({ page }) => 
   await page.getByTestId('interactive-input-field').fill('Toon')
   await page.getByTestId('interactive-input-submit').click()
   await expect(page.getByTestId('code-result')).toContainText('Toon')
+})
+
+test('Level 2 investigates a real syntax error, tours the evidence, and verifies the repair', async ({ page }) => {
+  await openSession(page)
+  await completeLevelOne(page)
+  await page.getByTestId('level-2').click()
+
+  await expect(page.getByTestId('level-2-play')).toBeVisible()
+  await page.getByTestId('level-2-play-run').click()
+  await expect(page.getByTestId('level-2-error-output')).toContainText('SyntaxError')
+  await page.getByTestId('level-2-continue-to-predict').click()
+  await expect(page.getByTestId('level-2-investigation-error')).toContainText('SyntaxError means Python could not read the code')
+
+  await page.getByTestId('level-2-predict-option-syntax').check()
+  await page.getByTestId('level-2-predict-submit').click()
+  await expect(page.getByTestId('level-2-predict-feedback')).toContainText('Correct')
+  await expect(page.getByTestId('level-2-continue-to-code')).not.toBeVisible()
+
+  await page.getByTestId('investigation-option-wrong-0').check()
+  await page.getByTestId('investigation-submit').click()
+  await expect(page.getByTestId('investigation-feedback')).toContainText('Try again')
+  await expect(page.getByTestId('level-2-continue-to-code')).not.toBeVisible()
+
+  for (let step = 0; step < 4; step++) {
+    await page.getByTestId(`investigation-option-correct-${step}`).check()
+    await page.getByTestId('investigation-submit').click()
+    if (step < 3) await page.getByTestId('investigation-next').click()
+  }
+
+  await expect(page.getByTestId('start-tour')).toBeVisible()
+  await page.getByTestId('start-tour').click()
+  await expect(page.locator('.driver-popover')).toBeVisible()
+  await page.locator('.driver-popover-next-btn').click()
+  await page.getByTestId('driver-skip-tour').click()
+  await expect(page.getByTestId('show-explanation-again')).toBeVisible()
+  await page.getByTestId('show-explanation-again').click()
+  await expect(page.locator('.driver-popover')).toBeVisible()
+  await page.getByTestId('driver-skip-tour').click()
+
+  await page.getByTestId('level-2-continue-to-code').click()
+  const editor = page.getByRole('textbox', { name: 'Python code editor' })
+  await editor.focus()
+  await editor.press('Control+A')
+  await editor.press('Backspace')
+  await editor.type('print("Hello World")')
+  await page.getByTestId('level-2-run-code').click()
+  await expect(page.getByTestId('level-2-code-result')).toContainText('Hello World')
+  await page.getByTestId('level-2-continue-to-test').click()
+  await page.getByTestId('level-2-test-code').click()
+
+  await expect(page.getByTestId('level-2-test-case-missing-quote')).toContainText('PASS')
+  await expect(page.getByTestId('level-2-test-case-repaired-output')).toContainText('PASS')
+  await expect(page.getByTestId('level-2-mastery-banner')).toBeVisible()
+  await expect(page.getByTestId('level-3')).toBeEnabled()
+})
+
+test('Level 2 Test reports the broken error and failed repair behavior separately', async ({ page }) => {
+  await openSession(page)
+  await completeLevelOne(page)
+  await page.getByTestId('level-2').click()
+  await enableExploreMode(page)
+  await page.getByTestId('stage-test').click()
+  await page.getByTestId('level-2-test-code').click()
+
+  await expect(page.getByTestId('level-2-test-case-missing-quote')).toContainText('PASS')
+  const repairedResult = page.getByTestId('level-2-test-case-repaired-output')
+  await expect(repairedResult).toContainText('FAIL')
+  await expect(repairedResult).toContainText('Expected')
+  await expect(repairedResult).toContainText('Actual')
+  await expect(repairedResult).toContainText('Error')
 })
