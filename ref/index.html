@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#071b3b" />
+  <title>CodeVenture Python Lab</title>
+  <style>
+:root {
+  --navy-950:#041126;
+  --navy-900:#071b3b;
+  --navy-850:#09224b;
+  --navy-800:#0a2a5e;
+  --navy-700:#0b3c86;
+  --blue:#2f7df4;
+  --blue-2:#5a9cff;
+  --cyan:#61c6ff;
+  --yellow:#ffc72c;
+  --green:#20cc83;
+  --red:#ff6474;
+  --ink:#eaf2ff;
+  --muted:#8499ba;
+  --muted-2:#5f769b;
+  --line:rgba(159,185,226,.13);
+  --panel:#081c3c;
+  --panel-2:#0a2147;
+  --panel-3:#0d2855;
+  --editor:#06162f;
+  --shadow:0 18px 55px rgba(0,0,0,.28);
+}
+
+* { box-sizing:border-box; }
+html,body { height:100%; }
+body {
+  margin:0;
+  overflow:hidden;
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:
+    radial-gradient(circle at 78% -10%, rgba(47,125,244,.18), transparent 30%),
+    radial-gradient(circle at 16% 105%, rgba(31,204,131,.08), transparent 30%),
+    var(--navy-950);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+button { font:inherit; }
+
+.app-shell {
+  height:100vh;
+  padding:12px;
+  display:grid;
+  grid-template-rows:66px minmax(0,1fr) 190px;
+  gap:10px;
+}
+.panel {
+  background:linear-gradient(180deg,rgba(10,33,71,.97),rgba(7,27,59,.98));
+  border:1px solid var(--line);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+/* Header */
+.topbar {
+  position:relative;
+  border:1px solid rgba(121,160,222,.16);
+  background:linear-gradient(90deg,#081d40 0%,#0a2b61 55%,#0a2350 100%);
+  border-radius:18px;
+  padding:0 14px 0 15px;
+  display:grid;
+  grid-template-columns:minmax(300px,1fr) auto minmax(300px,1fr);
+  align-items:center;
+  gap:16px;
+  box-shadow:0 14px 40px rgba(0,0,0,.28);
+}
+.topbar::after {
+  content:"";
+  position:absolute;
+  inset:auto 18% -1px 18%;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(95,159,255,.7),transparent);
+}
+.brand { display:flex; align-items:center; gap:12px; min-width:0; }
+.brand-copy { min-width:0; }
+.brand-title { font-size:16px; font-weight:800; letter-spacing:-.02em; white-space:nowrap; }
+.brand-title span { color:#a9c8ff; font-weight:700; }
+.brand-subtitle { font-size:11px; color:#8298bb; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.brand-avatar {
+  width:39px;height:39px;border-radius:12px;background:#f9fbff;border:1px solid rgba(255,255,255,.4);
+  position:relative;box-shadow:0 5px 14px rgba(0,0,0,.22), inset 0 -3px 0 rgba(4,17,38,.08);flex:0 0 auto;
+}
+.brand-avatar .cap {
+  position:absolute;left:5px;right:5px;top:4px;height:10px;background:#d8444b;border-radius:8px 8px 3px 3px;
+  box-shadow:inset 0 -3px 0 #a62c34;
+}
+.brand-avatar .cap::after { content:""; position:absolute; left:9px; right:6px; bottom:-2px; height:3px; background:#d8444b; border-radius:3px; }
+.brand-avatar .face {
+  position:absolute;left:6px;right:6px;top:14px;height:16px;border-radius:5px;background:#0a2147;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.brand-avatar .face i { width:3px;height:6px;border-radius:3px;background:#fff;display:block; }
+.brand-avatar .face b { width:6px;height:6px;border-radius:50%;background:#ff5e7f;display:block; }
+.project-chip {
+  justify-self:center;display:flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid rgba(145,177,226,.14);
+  border-radius:12px;background:rgba(5,20,46,.32);min-width:190px;
+}
+.project-chip strong { display:block;font-size:12px;font-weight:750; }
+.project-chip small { display:block;font-size:9.5px;color:#7389aa;margin-top:1px; }
+.project-dot { width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(32,204,131,.10); }
+.toolbar { justify-self:end; display:flex; gap:7px; }
+
+/* Buttons */
+.btn {
+  border:1px solid rgba(144,175,222,.16);
+  background:#0c2a58;
+  color:#dfeaff;
+  border-radius:10px;
+  padding:9px 12px;
+  cursor:pointer;
+  font-weight:700;
+  font-size:12px;
+  transition:transform .14s ease, box-shadow .14s ease, background .14s ease, border-color .14s ease;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+}
+.btn:hover:not(:disabled) { transform:translateY(-1px); border-color:rgba(140,186,255,.34); background:#12376f; box-shadow:0 7px 18px rgba(0,0,0,.18); }
+.btn:active:not(:disabled) { transform:translateY(0); }
+.btn:disabled { opacity:.34;cursor:not-allowed; }
+.btn.primary { background:var(--green); color:#04231a; border-color:transparent; box-shadow:0 7px 16px rgba(32,204,131,.16); }
+.btn.primary:hover:not(:disabled) { background:#35dc95; }
+.btn.accent { background:var(--yellow); color:#2b2200; border-color:transparent; box-shadow:0 7px 16px rgba(255,199,44,.12); }
+.btn.accent:hover:not(:disabled) { background:#ffd55b; }
+.btn.danger { background:rgba(255,100,116,.09); color:#ff9eaa; border-color:rgba(255,100,116,.16); }
+.btn.danger:hover:not(:disabled) { background:rgba(255,100,116,.15); }
+.btn.small { padding:7px 9px;font-size:10.5px;border-radius:8px; }
+.btn.ghost { background:rgba(255,255,255,.025);color:#8fa7ca; }
+.btn.icon-only { width:32px;padding:0; }
+.btn-icon { font-size:10px;line-height:1; }
+.debug-icon { font-size:13px;font-weight:900; }
+.danger-text { color:#e98b97 !important; }
+
+/* Workspace */
+.workspace { min-height:0; display:grid; grid-template-columns:220px minmax(520px,1fr) 380px; gap:10px; }
+.sidebar,.inspector { min-height:0; overflow:auto; scrollbar-width:thin; scrollbar-color:#234674 transparent; }
+.sidebar { padding:16px 13px 13px; }
+.sidebar-head { display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:13px; }
+.eyebrow { display:block;color:#5f81b4;font-size:8.5px;line-height:1;text-transform:uppercase;letter-spacing:.16em;font-weight:800;margin-bottom:5px; }
+h2 { margin:0;color:#e8f1ff;font-size:13px;line-height:1.2;font-weight:750;letter-spacing:-.01em; }
+.pill { padding:4px 7px;border-radius:7px;background:rgba(47,125,244,.13);border:1px solid rgba(83,147,246,.16);color:#78a8fa;font-size:8.5px;font-weight:800;max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.pill.muted { background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.06);color:#8095b6; }
+.file-actions { display:flex;gap:6px;margin-bottom:10px; }
+.file-action-main { flex:1; background:#0e3063; }
+.bottom-actions { margin:9px 0 0; }
+.file-tree { display:flex;flex-direction:column;gap:3px; }
+.file-item {
+  display:flex;align-items:center;gap:9px;min-height:37px;padding:7px 9px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+  color:#9eb0cc;font-size:11.5px;transition:.14s ease;
+}
+.file-item:hover { background:rgba(68,118,194,.08);color:#c6d7ef; }
+.file-item.active { background:linear-gradient(90deg,rgba(47,125,244,.18),rgba(47,125,244,.07));border-color:rgba(78,139,236,.18);color:white;box-shadow:inset 2px 0 0 var(--blue); }
+.file-icon {
+  width:24px;height:24px;border-radius:6px;display:grid;place-items:center;background:#112f61;border:1px solid rgba(99,149,229,.13);
+  color:#7fb0ff;font-size:7.5px;font-weight:900;letter-spacing:.02em;flex:0 0 auto;
+}
+.file-item.active .file-icon { background:#174d9a;color:#d7e8ff; }
+.file-name { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.file-row-actions { margin-left:auto;display:flex;align-items:center;gap:5px; }
+.file-run-btn {
+  width:24px;height:24px;border:1px solid rgba(32,204,131,.12);border-radius:7px;background:rgba(32,204,131,.07);
+  color:#65e4ad;display:grid;place-items:center;cursor:pointer;font-size:9px;opacity:0;transform:translateX(2px);transition:.14s ease;
+}
+.file-item:hover .file-run-btn,.file-item.active .file-run-btn { opacity:1;transform:none; }
+.file-run-btn:hover { background:rgba(32,204,131,.16);border-color:rgba(32,204,131,.28);color:#9af1ca; }
+.entry-tag { padding:3px 5px;border-radius:5px;background:rgba(255,199,44,.12);color:#f6cd51;font-size:7px;font-weight:900;letter-spacing:.06em; }
+.learning-card {
+  margin-top:15px;padding:11px;border-radius:12px;background:linear-gradient(140deg,rgba(255,199,44,.09),rgba(255,199,44,.025));
+  border:1px solid rgba(255,199,44,.12);display:flex;gap:9px;color:#aab9d0;
+}
+.learning-icon { width:25px;height:25px;border-radius:7px;display:grid;place-items:center;background:rgba(255,199,44,.12);color:var(--yellow);font-weight:900;flex:0 0 auto; }
+.learning-card strong { color:#e9f0fa;font-size:10.5px; }
+.learning-card p { margin:3px 0 7px;font-size:9.5px;line-height:1.35;color:#778ba9; }
+.learning-card code { display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:8.5px;color:#f3ce5c;background:rgba(3,14,31,.32);padding:6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+
+/* Editor */
+.editor-panel { min-width:0;display:grid;grid-template-rows:43px minmax(0,1fr) 50px;background:var(--editor); }
+.editor-head { display:flex;align-items:stretch;justify-content:space-between;border-bottom:1px solid rgba(143,175,220,.09);background:#081a37;padding:0 11px 0 6px; }
+.tab { min-width:145px;height:100%;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:2px solid var(--blue);background:rgba(34,89,170,.07);color:#dce9fb;font-size:11.5px;font-weight:650; }
+.tab-py { width:22px;height:22px;display:grid;place-items:center;border-radius:6px;background:#12386f;color:#6fa7ff;font-size:7px;font-weight:900; }
+.tab-dot { width:5px;height:5px;border-radius:50%;background:#587094;margin-left:auto; }
+.editor-meta { align-self:center;font-size:9.5px;color:#7084a4;display:flex;align-items:center;gap:6px; }
+.editor-meta::before { content:"";width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(32,204,131,.08); }
+#editor { min-height:0; }
+.debug-strip { border-top:1px solid rgba(143,175,220,.09);display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#081b3a; }
+.debug-context { min-width:0;display:flex;align-items:center;gap:8px; }
+.debug-kicker { font-size:7.5px;letter-spacing:.15em;font-weight:900;color:#49678f; }
+.step-label { font-size:9.5px;color:#758aa8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.debug-controls { display:flex;gap:5px; }
+.debug-control { min-width:31px;background:#0c2852; }
+
+/* Inspector */
+.inspector { padding:0; }
+.inspector-section { padding:15px 14px; }
+.inspector-section + .inspector-section { border-top:1px solid rgba(143,175,220,.10); }
+.panel-title-row { display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:11px; }
+.section-heading { margin-bottom:10px; }
+.empty-state { font-size:10px;color:#667b9d;line-height:1.45; }
+.variables.empty-state { min-height:118px;border:1px dashed rgba(126,160,212,.13);border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px;gap:4px; }
+.variables.empty-state strong { color:#9eb2d0;font-size:10px; }
+.variables.empty-state span { max-width:190px; }
+.empty-visual { width:48px;height:35px;border-radius:9px;background:#0c2b59;display:grid;place-items:center;color:#6ea4fb;font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:4px;box-shadow:inset 0 0 0 1px rgba(106,158,239,.12); }
+.variables:not(.empty-state) { border:1px solid rgba(137,169,218,.10);border-radius:10px;overflow:auto;max-height:245px;background:rgba(3,14,31,.20);scrollbar-width:thin;scrollbar-color:#244870 transparent; }
+.variable-table { width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:9px; }
+.variable-table thead th { position:sticky;top:0;z-index:2;padding:7px 8px;background:#0a2248;color:#6f89ae;text-align:left;font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid rgba(137,169,218,.12); }
+.variable-table thead th:first-child { width:27%; }
+.variable-table thead th:nth-child(2) { width:53%; }
+.variable-table thead th:last-child { width:20%; }
+.variable-table td { padding:8px;border-bottom:1px solid rgba(137,169,218,.07);vertical-align:middle; }
+.variable-table tbody tr:last-child td { border-bottom:0; }
+.variable-table tbody tr.changed { background:linear-gradient(90deg,rgba(255,199,44,.09),rgba(255,199,44,.015));box-shadow:inset 2px 0 0 var(--yellow); }
+.variable-name { color:#8cb8ff;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.variable-value { color:#d9e5f5;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:normal;overflow-wrap:anywhere;line-height:1.35; }
+.variable-previous { color:#7f91ad;font-size:7.7px;margin-top:2px; }
+.variable-previous .arrow { color:#d9b33d;padding:0 2px; }
+.variable-type { display:inline-block;color:#7d94b7;font:7.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:#0a244c;padding:3px 5px;border-radius:5px;max-width:100%;overflow:hidden;text-overflow:ellipsis; }
+.variable-new { margin-left:5px;color:#f5d464;font:800 6.7px system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase; }
+.call-stack .stack-row { position:relative;padding:7px 8px 7px 24px;background:rgba(47,125,244,.045);margin-bottom:5px;border-radius:8px;font-size:9px;color:#91a8c7;border:1px solid rgba(89,144,227,.07); }
+.call-stack .stack-row::before { content:"↳";position:absolute;left:8px;color:#4d83d2;font-weight:900; }
+.timeline { max-height:250px;overflow:auto;scrollbar-width:thin;scrollbar-color:#244870 transparent; }
+.timeline-row { display:flex;gap:8px;align-items:center;padding:7px 6px;border-bottom:1px solid rgba(137,169,218,.07);font-size:9px;color:#758cac;cursor:pointer;border-radius:7px;transition:.12s ease; }
+.timeline-row:hover { background:rgba(47,125,244,.05); }
+.timeline-row.active { color:#dceaff;background:rgba(47,125,244,.10); }
+.timeline-index { width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:#0a2b58;color:#729de0;font-size:8px;font-weight:800;flex:0 0 auto; }
+.timeline-row.active .timeline-index { background:var(--blue);color:#fff;box-shadow:0 0 0 3px rgba(47,125,244,.08); }
+.timeline-copy { min-width:0;display:flex;flex-direction:column;gap:1px; }
+.timeline-location { color:#9eb4d2;font:8.5px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.timeline-action { color:#627c9f;font-size:7.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.timeline-latest { margin-left:auto;flex:0 0 auto;color:#8ff0c2;background:rgba(32,204,131,.08);border:1px solid rgba(32,204,131,.13);padding:2px 5px;border-radius:999px;font-size:6.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase; }
+.debug-finished { color:#5fdca1;font-weight:800; }
+
+/* Console */
+.console-panel { background:#04142d;display:grid;grid-template-rows:38px minmax(0,1fr) auto; }
+.console-head { display:flex;align-items:center;justify-content:space-between;padding:0 11px;border-bottom:1px solid rgba(143,175,220,.09);background:#071933; }
+.console-title-wrap { display:flex;align-items:center;gap:5px; }
+.console-title-wrap h2 { margin-left:6px;color:#91a5c3;font-size:9px;letter-spacing:.08em;text-transform:uppercase; }
+.console-dot { width:7px;height:7px;border-radius:50%;opacity:.8; }
+.console-dot.red { background:#ff6f7e; }.console-dot.yellow{ background:#f3c54d; }.console-dot.green{ background:#3dcd8b; }
+.console-head .btn { padding:5px 8px;background:transparent; }
+#consoleOutput { margin:0;padding:11px 14px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;line-height:1.6;white-space:pre-wrap;color:#d8e5f8;scrollbar-width:thin;scrollbar-color:#244870 transparent; }
+.console-dim { color:#61799d; }.console-error { color:#ff8995; }
+.console-input-row { display:flex;align-items:center;gap:9px;padding:8px 12px 10px;border-top:1px solid rgba(143,175,220,.09);background:#061933; }
+.console-input-row[hidden] { display:none; }
+.console-input-prompt { color:#f2c84b;font:700 10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap; }
+.console-input-field { min-width:0;flex:1;border:1px solid rgba(89,144,227,.28);background:#071f42;color:#e8f1ff;border-radius:9px;padding:8px 10px;outline:none;font:10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;box-shadow:inset 0 0 0 1px rgba(255,255,255,.01); }
+.console-input-field:focus { border-color:#4b8ef7;box-shadow:0 0 0 3px rgba(47,125,244,.12); }
+.console-enter-btn { border:0;border-radius:8px;padding:7px 10px;background:#2f7df4;color:#fff;font-size:9.5px;font-weight:800;cursor:pointer; }
+.console-enter-btn:hover { filter:brightness(1.08); }
+.console-hint { color:#556e92;font-size:9px;white-space:nowrap; }
+
+/* Toast + debug decoration */
+.toast { position:fixed;right:18px;bottom:18px;background:#102b59;color:#eaf2ff;padding:9px 12px;border:1px solid rgba(134,170,223,.17);border-radius:10px;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s ease;font-size:10.5px;box-shadow:0 14px 35px rgba(0,0,0,.35); }
+.toast.show { opacity:1;transform:none; }
+.debug-current-line { background:linear-gradient(90deg,rgba(255,199,44,.12),rgba(255,199,44,.025)) !important;border-left:2px solid #ffc72c; }
+.debug-current-glyph { background:#ffc72c;border:2px solid #4b3a00;border-radius:50%;width:9px !important;height:9px !important;margin-left:5px;margin-top:6px;box-shadow:0 0 0 3px rgba(255,199,44,.10); }
+
+@media (max-width:1180px) {
+  .workspace { grid-template-columns:195px minmax(470px,1fr) 330px; }
+  .project-chip { display:none; }
+  .topbar { grid-template-columns:1fr auto; }
+}
+@media (max-width:960px) {
+  body { overflow:auto; }
+  .app-shell { height:auto;min-height:100vh;grid-template-rows:auto auto 190px; }
+  .workspace { grid-template-columns:190px minmax(520px,1fr);min-height:620px; }
+  .inspector { grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr); }
+  .inspector-section + .inspector-section { border-top:0;border-left:1px solid rgba(143,175,220,.10); }
+}
+
+</style>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+<style>
+#editor:empty::before{content:"Loading Python editor…";display:block;padding:24px;color:#7f9cc8;font:600 14px/1.5 system-ui,sans-serif}
+
+/* In-app file dialog: browser prompt() is blocked in some embedded previews. */
+.modal-backdrop{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:20px;background:rgba(0,8,24,.68);backdrop-filter:blur(8px)}
+.modal-backdrop[hidden]{display:none}
+.file-modal{width:min(430px,calc(100vw - 32px));border:1px solid rgba(126,170,238,.22);border-radius:18px;background:linear-gradient(180deg,#0b244d,#071a38);box-shadow:0 28px 80px rgba(0,0,0,.5);overflow:hidden}
+.file-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:18px 20px 10px}
+.file-modal-head .eyebrow{display:block;margin-bottom:4px}
+.file-modal-head h3{margin:0;color:#f3f7ff;font-size:17px;line-height:1.25}
+.file-modal-close{width:30px;height:30px;border:0;border-radius:9px;background:rgba(255,255,255,.04);color:#8297b8;cursor:pointer;font-size:18px;line-height:1}
+.file-modal-close:hover{background:rgba(255,255,255,.08);color:#e9f2ff}
+.file-modal-body{padding:10px 20px 18px}
+.file-modal-label{display:block;margin-bottom:7px;color:#91a9cb;font-size:10px;font-weight:750;letter-spacing:.03em}
+.file-modal-input{width:100%;box-sizing:border-box;border:1px solid rgba(88,145,231,.34);border-radius:11px;background:#06172f;color:#eef5ff;padding:11px 12px;outline:none;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.file-modal-input:focus{border-color:#4c90f8;box-shadow:0 0 0 3px rgba(47,125,244,.12)}
+.file-modal-help{min-height:17px;margin:7px 1px 0;color:#6f86a8;font-size:9.5px;line-height:1.4}
+.file-modal-help.error{color:#ff8e99}
+.file-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:13px 20px 17px;border-top:1px solid rgba(137,169,218,.09);background:rgba(2,12,28,.18)}
+.file-modal-actions .btn{min-width:82px;justify-content:center}
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-avatar" aria-hidden="true">
+          <span class="cap"></span>
+          <span class="face"><i></i><b></b><i></i></span>
+        </div>
+        <div class="brand-copy">
+          <div class="brand-title">CodeVenture <span>Python Lab</span></div>
+          <div class="brand-subtitle">Learn Python by seeing how your code works</div>
+        </div>
+      </div>
+
+      <div class="project-chip" title="Current project">
+        <span class="project-dot"></span>
+        <div>
+          <strong>Python Basics</strong>
+          <small>3 files · browser sandbox</small>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button id="runBtn" class="btn primary" title="Run the project main file"><span class="btn-icon">▶</span> Run</button>
+        <button id="runFileBtn" class="btn ghost" title="Run the selected file"><span class="btn-icon">▷</span> Run file</button>
+        <button id="debugBtn" class="btn accent" title="Debug the selected file"><span class="btn-icon debug-icon">◇</span> Debug file</button>
+        <button id="stopBtn" class="btn danger"><span class="btn-icon">■</span> Stop</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar panel">
+        <div class="sidebar-head">
+          <div>
+            <span class="eyebrow">WORKSPACE</span>
+            <h2>Project files</h2>
+          </div>
+          <span class="pill" id="entryBadge">main.py</span>
+        </div>
+
+        <div class="file-actions">
+          <button id="newFileBtn" class="btn small file-action-main">＋ New file</button>
+          <button id="importFileBtn" class="btn small icon-only" title="Import Python files">⇩</button>
+          <input id="fileInput" type="file" accept=".py,text/x-python" multiple hidden />
+        </div>
+
+        <div id="fileTree" class="file-tree"></div>
+
+        <div class="file-actions bottom-actions">
+          <button id="renameFileBtn" class="btn small ghost">Rename</button>
+          <button id="deleteFileBtn" class="btn small ghost danger-text">Delete</button>
+        </div>
+
+        <div class="learning-card">
+          <div class="learning-icon">↗</div>
+          <div>
+            <strong>Multi-file Python</strong>
+            <p>Use modules just like a real Python project.</p>
+            <code>from player import Player</code>
+          </div>
+        </div>
+      </aside>
+
+      <section class="editor-panel panel">
+        <div class="editor-head">
+          <div class="tab active" id="activeTab">
+            <span class="tab-py">PY</span>
+            <span>main.py</span>
+            <span class="tab-dot"></span>
+          </div>
+          <div class="editor-meta" id="runtimeStatus">Runtime: loading…</div>
+        </div>
+
+        <div id="editor"></div>
+
+        <div class="debug-strip">
+          <div class="debug-context">
+            <span class="debug-kicker">DEBUGGER</span>
+            <span id="stepLabel" class="step-label">No debug session</span>
+          </div>
+          <div class="debug-controls">
+            <button id="prevStepBtn" class="btn small debug-control" disabled title="Previous step">◀</button>
+            <button id="nextStepBtn" class="btn small debug-control" disabled>Next step <span>▶</span></button>
+            <button id="continueBtn" class="btn small debug-control" disabled>To end <span>»</span></button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="inspector panel">
+        <section class="inspector-section variables-section">
+          <div class="panel-title-row">
+            <div>
+              <span class="eyebrow">LIVE STATE</span>
+              <h2>Variables</h2>
+            </div>
+            <span class="pill muted" id="lineBadge">—</span>
+          </div>
+          <div id="variables" class="variables empty-state">
+            <div class="empty-visual">x = ?</div>
+            <strong>See variables change</strong>
+            <span>Run Debug and step through your program.</span>
+          </div>
+        </section>
+
+        <section class="stack-section inspector-section">
+          <div class="section-heading">
+            <span class="eyebrow">FLOW</span>
+            <h2>Program path</h2>
+          </div>
+          <div id="callStack" class="call-stack empty-state">No active stack.</div>
+        </section>
+
+        <section class="timeline-section inspector-section">
+          <div class="section-heading">
+            <span class="eyebrow">STEPS</span>
+            <h2>Execution trace</h2>
+          </div>
+          <div id="timeline" class="timeline empty-state">Execution steps will appear here.</div>
+        </section>
+      </aside>
+    </main>
+
+    <section class="console-panel panel">
+      <div class="console-head">
+        <div class="console-title-wrap">
+          <span class="console-dot red"></span><span class="console-dot yellow"></span><span class="console-dot green"></span>
+          <h2>Console</h2>
+        </div>
+        <button id="clearConsoleBtn" class="btn small ghost">Clear</button>
+      </div>
+      <pre id="consoleOutput"><span class="console-dim">Ready. Press Run to start the project main file, or Run file to execute the selected file.</span></pre>
+      <form id="consoleInputRow" class="console-input-row" hidden autocomplete="off">
+        <span id="consoleInputPrompt" class="console-input-prompt"></span>
+        <input id="consoleInputField" class="console-input-field" type="text" spellcheck="false" aria-label="Python input" />
+        <span class="console-hint">input()</span>
+        <button class="console-enter-btn" type="submit">Enter ↵</button>
+      </form>
+    </section>
+  </div>
+
+  <div id="fileModal" class="modal-backdrop" hidden>
+    <form id="fileModalForm" class="file-modal" autocomplete="off">
+      <div class="file-modal-head">
+        <div>
+          <span class="eyebrow">PROJECT FILE</span>
+          <h3 id="fileModalTitle">Create a new Python file</h3>
+        </div>
+        <button id="fileModalClose" class="file-modal-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="file-modal-body">
+        <label class="file-modal-label" for="fileModalInput">File name</label>
+        <input id="fileModalInput" class="file-modal-input" type="text" value="module.py" spellcheck="false" inputmode="text" />
+        <div id="fileModalHelp" class="file-modal-help">Use letters, numbers, underscores, and a .py extension.</div>
+      </div>
+      <div class="file-modal-actions">
+        <button id="fileModalCancel" class="btn small ghost" type="button">Cancel</button>
+        <button id="fileModalConfirm" class="btn small primary" type="submit">Create file</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script>
+const WORKER_SOURCE = "let pyodide = null;\nlet ready = false;\n\nasync function boot() {\n  try {\n    importScripts('https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js');\n    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/' });\n    ready = true;\n    postMessage({ type: 'ready' });\n  } catch (err) {\n    postMessage({ type: 'boot-error', error: String(err) });\n  }\n}\nboot();\n\nasync function runProject(payload) {\n  if (!ready) throw new Error('Python runtime is still loading.');\n  const files = payload.files || {};\n  const entry = payload.entry || 'main.py';\n  const traceEnabled = !!payload.trace;\n  const inputs = Array.isArray(payload.inputs) ? payload.inputs : [];\n\n  try { pyodide.FS.mkdirTree('/project'); } catch (_) {}\n\n  // Remove old project files so imports always reflect the current project state.\n  try {\n    for (const name of pyodide.FS.readdir('/project')) {\n      if (name !== '.' && name !== '..') {\n        const path = '/project/' + name;\n        try { pyodide.FS.unlink(path); } catch (_) {}\n      }\n    }\n  } catch (_) {}\n\n  for (const [name, content] of Object.entries(files)) {\n    if (!name.endsWith('.py')) continue;\n    pyodide.FS.writeFile('/project/' + name, content, { encoding: 'utf8' });\n  }\n\n  pyodide.globals.set('__cv_entry', entry);\n  pyodide.globals.set('__cv_trace_enabled', traceEnabled);\n  pyodide.globals.set('__cv_inputs_json', JSON.stringify(inputs));\n\n  const runner = `\nimport sys, io, json, traceback, os, builtins\nfrom contextlib import redirect_stdout, redirect_stderr\n\nPROJECT = '/project'\nENTRY = __cv_entry\nTRACE_ENABLED = bool(__cv_trace_enabled)\nMAX_TRACE = 10000\n_trace = []\n\n# input() bridge. A missing value pauses the browser UI. The browser then\n# re-runs the project with the submitted input history, which keeps this\n# prototype dependency-free and works without SharedArrayBuffer.\n_cv_inputs = json.loads(__cv_inputs_json)\n_cv_input_index = 0\n\nclass __CVNeedInput(Exception):\n    def __init__(self, prompt=''):\n        super().__init__(prompt)\n        self.prompt = str(prompt)\n\ndef _cv_input(prompt=''):\n    global _cv_input_index\n    if _cv_input_index >= len(_cv_inputs):\n        raise __CVNeedInput(prompt)\n    value = str(_cv_inputs[_cv_input_index])\n    _cv_input_index += 1\n    # Mirror terminal behavior so prior answers appear in the final console.\n    print(str(prompt), end='')\n    print(value)\n    return value\n\nif PROJECT not in sys.path:\n    sys.path.insert(0, PROJECT)\n\n# Make repeated runs import fresh project modules.\nfor _name, _mod in list(sys.modules.items()):\n    _file = getattr(_mod, '__file__', '') or ''\n    if isinstance(_file, str) and _file.startswith(PROJECT):\n        sys.modules.pop(_name, None)\n\ndef _safe(value, depth=0):\n    if depth > 2:\n        return {'type': type(value).__name__, 'repr': repr(value)[:120]}\n    if value is None or isinstance(value, (bool, int, float, str)):\n        return {'type': type(value).__name__, 'value': value, 'repr': repr(value)[:200]}\n    if isinstance(value, (list, tuple)):\n        return {\n            'type': type(value).__name__,\n            'value': [_safe(v, depth+1) for v in value[:20]],\n            'repr': repr(value)[:300]\n        }\n    if isinstance(value, dict):\n        items = []\n        for k, v in list(value.items())[:20]:\n            items.append([repr(k)[:80], _safe(v, depth+1)])\n        return {'type': 'dict', 'value': items, 'repr': repr(value)[:300]}\n    return {'type': type(value).__name__, 'repr': repr(value)[:300]}\n\ndef _stack(frame):\n    rows = []\n    f = frame\n    while f:\n        filename = f.f_code.co_filename\n        if isinstance(filename, str) and filename.startswith(PROJECT):\n            rows.append({\n                'file': os.path.basename(filename),\n                'function': f.f_code.co_name,\n                'line': f.f_lineno\n            })\n        f = f.f_back\n    rows.reverse()\n    return rows\n\ndef _tracer(frame, event, arg):\n    if len(_trace) >= MAX_TRACE:\n        return None\n    filename = frame.f_code.co_filename\n    if not (isinstance(filename, str) and filename.startswith(PROJECT)):\n        return _tracer\n    if event in ('line', 'return'):\n        locals_snapshot = {}\n        for k, v in frame.f_locals.items():\n            if not k.startswith('__'):\n                try:\n                    locals_snapshot[k] = _safe(v)\n                except Exception:\n                    locals_snapshot[k] = {'type': type(v).__name__, 'repr': '<unavailable>'}\n        _trace.append({\n            'file': os.path.basename(filename),\n            'line': frame.f_lineno,\n            'function': frame.f_code.co_name,\n            'event': event,\n            'returnValue': _safe(arg) if event == 'return' else None,\n            'locals': locals_snapshot,\n            'stack': _stack(frame)\n        })\n    return _tracer\n\n_stdout, _stderr = io.StringIO(), io.StringIO()\n_error = None\n_needs_input = False\n_input_prompt = ''\n_original_input = builtins.input\ntry:\n    builtins.input = _cv_input\n    if TRACE_ENABLED:\n        sys.settrace(_tracer)\n    namespace = {'__name__': '__main__', '__file__': f'{PROJECT}/{ENTRY}'}\n    with redirect_stdout(_stdout), redirect_stderr(_stderr):\n        source = open(f'{PROJECT}/{ENTRY}', encoding='utf-8').read()\n        exec(compile(source, f'{PROJECT}/{ENTRY}', 'exec'), namespace, namespace)\nexcept __CVNeedInput as exc:\n    _needs_input = True\n    _input_prompt = exc.prompt\nexcept BaseException:\n    _error = traceback.format_exc()\nfinally:\n    sys.settrace(None)\n    builtins.input = _original_input\n\njson.dumps({\n    'stdout': _stdout.getvalue(),\n    'stderr': _stderr.getvalue(),\n    'error': _error,\n    'trace': _trace,\n    'traceTruncated': len(_trace) >= MAX_TRACE,\n    'needsInput': _needs_input,\n    'inputPrompt': _input_prompt,\n    'inputsConsumed': _cv_input_index\n})\n`;\n\n  const resultJson = await pyodide.runPythonAsync(runner);\n  return JSON.parse(resultJson);\n}\n\nonmessage = async (event) => {\n  const msg = event.data || {};\n  if (msg.type !== 'run') return;\n  try {\n    const result = await runProject(msg.payload || {});\n    postMessage({ type: 'result', requestId: msg.requestId, result });\n  } catch (err) {\n    postMessage({ type: 'result', requestId: msg.requestId, result: { stdout:'', stderr:'', error:String(err), trace:[], needsInput:false } });\n  }\n};\n";
+const starterFiles = {
+  'main.py': `from player import Player\nfrom utils import calculate_score\n\nplayer = Player("Codi")\nscore = calculate_score(10, 20)\n\nprint(player.greet())\nprint("Score:", score)\n`,
+  'player.py': `class Player:\n    def __init__(self, name):\n        self.name = name\n\n    def greet(self):\n        return f"Hello, {self.name}!"\n`,
+  'utils.py': `def calculate_score(a, b):\n    result = a + b\n    return result\n`
+};
+
+let files = loadFiles();
+let activeFile = files['main.py'] ? 'main.py' : Object.keys(files)[0];
+let entryFile = files['main.py'] ? 'main.py' : activeFile;
+let currentRunEntry = entryFile;
+let editor = null;
+let models = new Map();
+let worker = null;
+let workerReady = false;
+let requestSeq = 0;
+let runningRequest = null;
+let trace = [];
+let traceIndex = -1;
+let maxVisitedTraceIndex = -1;
+let currentDecorations = [];
+let previousLocals = {};
+let activeInputs = [];
+let activeRunTraceMode = false;
+let awaitingInput = false;
+
+const els = Object.fromEntries([
+  'runBtn','runFileBtn','debugBtn','stopBtn','newFileBtn','importFileBtn','fileInput','fileTree','renameFileBtn','deleteFileBtn','activeTab','runtimeStatus','prevStepBtn','nextStepBtn','continueBtn','stepLabel','variables','callStack','timeline','consoleOutput','consoleInputRow','consoleInputPrompt','consoleInputField','clearConsoleBtn','toast','entryBadge','lineBadge','fileModal','fileModalForm','fileModalTitle','fileModalInput','fileModalHelp','fileModalCancel','fileModalConfirm','fileModalClose'
+].map(id => [id, document.getElementById(id)]));
+
+function loadFiles() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('cv-python-lab-files') || 'null');
+    if (saved && Object.keys(saved).length) return saved;
+  } catch (_) {}
+  return { ...starterFiles };
+}
+function saveFiles() { localStorage.setItem('cv-python-lab-files', JSON.stringify(files)); }
+function toast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.add('show');
+  setTimeout(() => els.toast.classList.remove('show'), 1600);
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function appendConsole(text, cls='') {
+  if (!text) return;
+  const span = document.createElement('span');
+  if (cls) span.className = cls;
+  span.textContent = text;
+  els.consoleOutput.appendChild(span);
+  els.consoleOutput.scrollTop = els.consoleOutput.scrollHeight;
+}
+function clearConsole() { els.consoleOutput.innerHTML = ''; }
+
+function initWorker() {
+  if (worker) worker.terminate();
+  workerReady = false;
+  els.runtimeStatus.textContent = 'Runtime: loading Pyodide…';
+  const workerUrl = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }));
+  worker = new Worker(workerUrl);
+  worker.addEventListener('message', () => URL.revokeObjectURL(workerUrl), { once: true });
+  worker.onmessage = (event) => {
+    const msg = event.data || {};
+    if (msg.type === 'ready') {
+      workerReady = true;
+      els.runtimeStatus.textContent = 'Runtime: ready';
+      toast('Python runtime ready');
+    } else if (msg.type === 'boot-error') {
+      els.runtimeStatus.textContent = 'Runtime: failed';
+      appendConsole('\nRuntime error: ' + msg.error + '\n', 'console-error');
+    } else if (msg.type === 'result' && msg.requestId === runningRequest) {
+      handleRunResult(msg.result || {});
+    }
+  };
+}
+
+function fileNamesForCompletion() {
+  return Object.keys(files).filter(n => n.endsWith('.py')).map(n => n.replace(/\.py$/,''));
+}
+
+function initMonaco() {
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } });
+  require(['vs/editor/editor.main'], () => {
+    monaco.editor.defineTheme('codeventure-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '526B8F', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '7DB3FF' },
+        { token: 'string', foreground: 'FFD56A' },
+        { token: 'number', foreground: '67DBB0' },
+        { token: 'type.identifier', foreground: '9ED1FF' },
+        { token: 'identifier', foreground: 'D9E7FA' }
+      ],
+      colors: {
+        'editor.background': '#06162F',
+        'editor.foreground': '#D9E7FA',
+        'editorLineNumber.foreground': '#38557F',
+        'editorLineNumber.activeForeground': '#86A9D9',
+        'editorCursor.foreground': '#FFC72C',
+        'editor.selectionBackground': '#17488799',
+        'editor.inactiveSelectionBackground': '#17365B88',
+        'editor.lineHighlightBackground': '#0A2147',
+        'editorIndentGuide.background1': '#16345E',
+        'editorIndentGuide.activeBackground1': '#2A5B99',
+        'editorSuggestWidget.background': '#0A2147',
+        'editorSuggestWidget.border': '#1C4275',
+        'editorSuggestWidget.selectedBackground': '#123B79',
+        'editorHoverWidget.background': '#0A2147',
+        'editorHoverWidget.border': '#1C4275'
+      }
+    });
+    monaco.languages.registerCompletionItemProvider('python', {
+      triggerCharacters: ['.', ' '],
+      provideCompletionItems(model, position) {
+        const words = ['print','input','int','str','float','bool','list','dict','len','range','enumerate','if','elif','else','for','while','def','return','class','import','from','True','False','None'];
+        const modules = fileNamesForCompletion();
+        const suggestions = words.map(label => ({
+          label,
+          kind: monaco.languages.CompletionItemKind.Keyword,
+          insertText: label,
+          range: undefined
+        }));
+        for (const label of modules) suggestions.push({
+          label,
+          detail: 'Project module',
+          kind: monaco.languages.CompletionItemKind.Module,
+          insertText: label,
+          range: undefined
+        });
+        return { suggestions };
+      }
+    });
+    editor = monaco.editor.create(document.getElementById('editor'), {
+      model: modelFor(activeFile),
+      language: 'python',
+      theme: 'codeventure-dark',
+      automaticLayout: true,
+      minimap: { enabled: false },
+      fontSize: 15,
+      lineHeight: 23,
+      glyphMargin: true,
+      roundedSelection: true,
+      padding: { top: 10 },
+      suggest: { showWords: true },
+      quickSuggestions: true,
+      tabSize: 4
+    });
+    editor.onDidChangeModelContent(() => {
+      files[activeFile] = editor.getValue();
+      saveFiles();
+    });
+    renderFileTree();
+  });
+}
+
+function modelFor(name) {
+  if (models.has(name)) return models.get(name);
+  const uri = monaco.Uri.parse('file:///project/' + name);
+  const model = monaco.editor.createModel(files[name] || '', 'python', uri);
+  models.set(name, model);
+  return model;
+}
+
+function setActiveTabLabel(name) {
+  els.activeTab.innerHTML = `<span class="tab-py">PY</span><span>${escapeHtml(name)}</span><span class="tab-dot"></span>`;
+}
+
+function switchFile(name, revealLine=null) {
+  if (!files[name] || !editor) return;
+  activeFile = name;
+  editor.setModel(modelFor(name));
+  setActiveTabLabel(name);
+  els.runBtn.title = `Run project (${entryFile})`;
+  els.runFileBtn.title = `Run selected file (${name})`;
+  els.debugBtn.title = `Debug selected file (${name})`;
+  renderFileTree();
+  if (revealLine) {
+    editor.revealLineInCenter(revealLine);
+    editor.setPosition({ lineNumber: revealLine, column: 1 });
+  }
+}
+
+function renderFileTree() {
+  els.entryBadge.textContent = entryFile;
+  els.fileTree.innerHTML = '';
+  for (const name of Object.keys(files).sort((a,b) => (a===entryFile?-1:b===entryFile?1:a.localeCompare(b)))) {
+    const row = document.createElement('div');
+    row.className = 'file-item' + (name === activeFile ? ' active' : '');
+    row.innerHTML = `<span class="file-icon">PY</span><span class="file-name">${escapeHtml(name)}</span><span class="file-row-actions">${name===entryFile?'<span class="entry-tag" title="Project main file">MAIN</span>':''}<button class="file-run-btn" type="button" title="Run ${escapeHtml(name)}" aria-label="Run ${escapeHtml(name)}">▶</button></span>`;
+    row.onclick = () => switchFile(name);
+    const runButton = row.querySelector('.file-run-btn');
+    runButton.onclick = (event) => { event.stopPropagation(); sendRun(false, name); };
+    row.ondblclick = (event) => {
+      if (event.target.closest('.file-run-btn')) return;
+      entryFile = name;
+      renderFileTree();
+      toast(name + ' set as project main file');
+    };
+    els.fileTree.appendChild(row);
+  }
+}
+
+function uniqueFileName(base='untitled.py') {
+  if (!files[base]) return base;
+  const stem = base.replace(/\.py$/,'');
+  let i = 2;
+  while (files[`${stem}_${i}.py`]) i++;
+  return `${stem}_${i}.py`;
+}
+function normalizePyName(name) {
+  name = (name || '').trim().replace(/\s+/g,'_');
+  if (!name.endsWith('.py')) name += '.py';
+  if (!/^[A-Za-z_][A-Za-z0-9_]*\.py$/.test(name)) return null;
+  return name;
+}
+
+let fileModalMode = 'new';
+function closeFileModal() {
+  els.fileModal.hidden = true;
+  els.fileModalHelp.classList.remove('error');
+}
+function openFileModal(mode='new') {
+  fileModalMode = mode;
+  const renaming = mode === 'rename';
+  els.fileModalTitle.textContent = renaming ? 'Rename Python file' : 'Create a new Python file';
+  els.fileModalConfirm.textContent = renaming ? 'Rename file' : 'Create file';
+  els.fileModalInput.value = renaming ? activeFile : uniqueFileName('module.py');
+  els.fileModalHelp.textContent = 'Use letters, numbers, underscores, and a .py extension.';
+  els.fileModalHelp.classList.remove('error');
+  els.fileModal.hidden = false;
+  requestAnimationFrame(() => {
+    els.fileModalInput.focus();
+    const dot = els.fileModalInput.value.lastIndexOf('.py');
+    els.fileModalInput.setSelectionRange(0, dot > 0 ? dot : els.fileModalInput.value.length);
+  });
+}
+function showFileModalError(message) {
+  els.fileModalHelp.textContent = message;
+  els.fileModalHelp.classList.add('error');
+  els.fileModalInput.focus();
+}
+
+els.newFileBtn.onclick = () => openFileModal('new');
+els.renameFileBtn.onclick = () => openFileModal('rename');
+els.fileModalCancel.onclick = closeFileModal;
+els.fileModalClose.onclick = closeFileModal;
+els.fileModal.onclick = (e) => { if (e.target === els.fileModal) closeFileModal(); };
+els.fileModalInput.addEventListener('input', () => {
+  els.fileModalHelp.textContent = 'Use letters, numbers, underscores, and a .py extension.';
+  els.fileModalHelp.classList.remove('error');
+});
+els.fileModalForm.onsubmit = (e) => {
+  e.preventDefault();
+  const name = normalizePyName(els.fileModalInput.value);
+  if (!name) return showFileModalError('Invalid file name. Try something like game_logic.py');
+
+  if (fileModalMode === 'new') {
+    if (files[name]) return showFileModalError('A file with this name already exists.');
+    files[name] = '# New Python module\n';
+    saveFiles();
+    closeFileModal();
+    switchFile(name);
+    toast(name + ' created');
+    return;
+  }
+
+  if (!activeFile) return closeFileModal();
+  if (name !== activeFile && files[name]) return showFileModalError('A file with this name already exists.');
+  if (name === activeFile) return closeFileModal();
+  const old = activeFile;
+  files[name] = files[old];
+  delete files[old];
+  if (models.has(old)) { models.get(old).dispose(); models.delete(old); }
+  if (entryFile === old) entryFile = name;
+  activeFile = name;
+  saveFiles();
+  closeFileModal();
+  switchFile(name);
+  toast(old + ' renamed to ' + name);
+};
+els.deleteFileBtn.onclick = () => {
+  if (Object.keys(files).length <= 1) return toast('Keep at least one Python file');
+  if (!confirm(`Delete ${activeFile}?`)) return;
+  const old = activeFile;
+  delete files[old];
+  if (models.has(old)) { models.get(old).dispose(); models.delete(old); }
+  activeFile = Object.keys(files)[0];
+  if (entryFile === old) entryFile = activeFile;
+  saveFiles();
+  switchFile(activeFile);
+};
+els.importFileBtn.onclick = () => els.fileInput.click();
+els.fileInput.onchange = async () => {
+  const picked = Array.from(els.fileInput.files || []);
+  for (const f of picked) {
+    if (!f.name.endsWith('.py')) continue;
+    const name = normalizePyName(f.name);
+    if (!name) continue;
+    files[name] = await f.text();
+    if (models.has(name)) { models.get(name).setValue(files[name]); }
+  }
+  saveFiles();
+  renderFileTree();
+  if (picked.length) toast(`Imported ${picked.length} file(s)`);
+  els.fileInput.value = '';
+};
+
+function dispatchRun() {
+  awaitingInput = false;
+  els.consoleInputRow.hidden = true;
+  runningRequest = ++requestSeq;
+  els.runtimeStatus.textContent = activeRunTraceMode ? `Debugging ${currentRunEntry}…` : `Running ${currentRunEntry}…`;
+  worker.postMessage({
+    type:'run',
+    requestId:runningRequest,
+    payload:{ files, entry:currentRunEntry, trace:activeRunTraceMode, inputs:activeInputs }
+  });
+}
+
+function sendRun(traceMode, runEntry = activeFile) {
+  if (!workerReady) return toast('Python runtime is still loading');
+  if (editor) files[activeFile] = editor.getValue();
+  if (!files[runEntry]) return toast(`Cannot run ${runEntry}`);
+  saveFiles();
+  activeInputs = [];
+  activeRunTraceMode = traceMode;
+  currentRunEntry = runEntry;
+  clearConsole();
+  appendConsole(traceMode ? `Debugging ${currentRunEntry}…\n` : `Running ${currentRunEntry}…\n`, 'console-dim');
+  resetDebug();
+  dispatchRun();
+}
+els.runBtn.onclick = () => sendRun(false, entryFile);
+els.runFileBtn.onclick = () => sendRun(false, activeFile);
+els.debugBtn.onclick = () => sendRun(true, activeFile);
+els.stopBtn.onclick = () => {
+  awaitingInput = false;
+  activeInputs = [];
+  els.consoleInputRow.hidden = true;
+  if (worker) worker.terminate();
+  appendConsole('\nExecution stopped.\n', 'console-error');
+  resetDebug();
+  initWorker();
+};
+
+els.consoleInputRow.onsubmit = (event) => {
+  event.preventDefault();
+  if (!awaitingInput) return;
+  const value = els.consoleInputField.value;
+  activeInputs.push(value);
+  els.consoleInputField.value = '';
+  els.consoleInputRow.hidden = true;
+  awaitingInput = false;
+  dispatchRun();
+};
+
+function showConsoleInput(promptText) {
+  awaitingInput = true;
+  els.runtimeStatus.textContent = 'Runtime: waiting for input…';
+  els.consoleInputPrompt.textContent = promptText || '> ';
+  els.consoleInputField.value = '';
+  els.consoleInputRow.hidden = false;
+  requestAnimationFrame(() => els.consoleInputField.focus());
+}
+
+function handleRunResult(result) {
+  clearConsole();
+  if (result.stdout) appendConsole(result.stdout);
+  if (result.stderr) appendConsole(result.stderr, 'console-error');
+
+  if (result.needsInput) {
+    if (result.error) appendConsole(result.error, 'console-error');
+    showConsoleInput(result.inputPrompt || 'Input: ');
+    return;
+  }
+
+  awaitingInput = false;
+  els.consoleInputRow.hidden = true;
+  els.runtimeStatus.textContent = 'Runtime: ready';
+  if (result.error) appendConsole(result.error, 'console-error');
+  if (!result.stdout && !result.stderr && !result.error) appendConsole('Program finished with no output.\n', 'console-dim');
+  trace = result.trace || [];
+  if (trace.length) {
+    traceIndex = 0;
+    maxVisitedTraceIndex = 0;
+    previousLocals = {};
+    renderTrace();
+    renderStep();
+    if (result.traceTruncated) appendConsole('\nTrace stopped at 10,000 steps.\n', 'console-error');
+  }
+}
+
+function resetDebug() {
+  trace = [];
+  traceIndex = -1;
+  maxVisitedTraceIndex = -1;
+  previousLocals = {};
+  els.prevStepBtn.disabled = true;
+  els.nextStepBtn.disabled = true;
+  els.continueBtn.disabled = true;
+  els.stepLabel.textContent = 'No debug session';
+  els.variables.className = 'variables empty-state';
+  els.variables.innerHTML = '<div class="empty-visual">x = ?</div><strong>See variables change</strong><span>Run Debug and step through your program.</span>';
+  els.callStack.innerHTML = '<div class="empty-state">No active stack.</div>';
+  els.timeline.innerHTML = '<div class="empty-state" style="padding:10px">Execution steps will appear here.</div>';
+  els.lineBadge.textContent = '—';
+  clearHighlight();
+}
+function clearHighlight() {
+  if (editor && currentDecorations.length) currentDecorations = editor.deltaDecorations(currentDecorations, []);
+}
+function renderTrace() {
+  if (!trace.length || maxVisitedTraceIndex < 0) {
+    els.timeline.innerHTML = '<div class="empty-state" style="padding:10px">Execution steps will appear here.</div>';
+    return;
+  }
+
+  els.timeline.innerHTML = '';
+  // Execution log behaves like a live feed: the newest visited step is always on top.
+  for (let i = maxVisitedTraceIndex; i >= 0; i--) {
+    const s = trace[i];
+    if (!s) continue;
+    const row = document.createElement('div');
+    row.className = 'timeline-row' + (i === traceIndex ? ' active' : '');
+    const isProgramEnd = s.event === 'return' && s.function === '<module>' && s.file === currentRunEntry;
+    const action = isProgramEnd
+      ? 'Program finished'
+      : s.event === 'return'
+        ? `Return from ${s.function}()`
+        : s.function === '<module>'
+          ? 'Run line'
+          : `${s.function}()`;
+    row.innerHTML = `
+      <span class="timeline-index">${i + 1}</span>
+      <span class="timeline-copy">
+        <span class="timeline-location">${escapeHtml(s.file)}:${s.line}</span>
+        <span class="timeline-action">${escapeHtml(action)}</span>
+      </span>
+      ${i === maxVisitedTraceIndex ? '<span class="timeline-latest">Latest</span>' : ''}`;
+    row.onclick = () => { traceIndex = i; renderTrace(); renderStep(); };
+    els.timeline.appendChild(row);
+  }
+  els.timeline.scrollTop = 0;
+}
+function renderStep() {
+  if (traceIndex < 0 || !trace[traceIndex]) return;
+  const step = trace[traceIndex];
+  const prev = traceIndex > 0 ? (trace[traceIndex-1].locals || {}) : {};
+  previousLocals = prev;
+  const isProgramEnd = step.event === 'return' && step.function === '<module>' && step.file === currentRunEntry;
+  switchFile(step.file, step.line);
+  els.stepLabel.textContent = isProgramEnd
+    ? `Step ${traceIndex+1} / ${trace.length} • Program finished`
+    : step.event === 'return'
+      ? `Step ${traceIndex+1} / ${trace.length} • Return from ${step.function}() • ${step.file}:${step.line}`
+      : `Step ${traceIndex+1} / ${trace.length} • ${step.file}:${step.line}`;
+  els.lineBadge.textContent = isProgramEnd ? 'Done' : `${step.file}:${step.line}`;
+  clearHighlight();
+  if (editor && !isProgramEnd) currentDecorations = editor.deltaDecorations([], [{
+    range: new monaco.Range(step.line,1,step.line,1),
+    options: { isWholeLine:true, className:'debug-current-line', glyphMarginClassName:'debug-current-glyph' }
+  }]);
+  els.prevStepBtn.disabled = traceIndex <= 0;
+  els.nextStepBtn.disabled = traceIndex >= trace.length - 1;
+  els.continueBtn.disabled = traceIndex >= trace.length - 1;
+
+  const locals = step.locals || {};
+  els.variables.innerHTML = '';
+  els.variables.classList.remove('empty-state');
+  const keys = Object.keys(locals).sort();
+  if (!keys.length) {
+    els.variables.classList.add('empty-state');
+    els.variables.innerHTML = '<div class="empty-visual">x = ?</div><strong>No variables yet</strong><span>This step has no local variables.</span>';
+  } else {
+    const table = document.createElement('table');
+    table.className = 'variable-table';
+    table.innerHTML = '<thead><tr><th>Variable</th><th>Value</th><th>Type</th></tr></thead><tbody></tbody>';
+    const tbody = table.querySelector('tbody');
+    for (const key of keys) {
+      const v = locals[key] || {};
+      const before = prev[key] || null;
+      const changed = !before || before.repr !== v.repr;
+      const isNew = !before;
+      const currentValue = v.repr ?? String(v.value);
+      const row = document.createElement('tr');
+      row.className = changed ? 'changed' : '';
+      const previousHtml = before && changed
+        ? `<div class="variable-previous">was ${escapeHtml(before.repr)} <span class="arrow">→</span></div>`
+        : '';
+      row.innerHTML = `
+        <td><span class="variable-name">${escapeHtml(key)}</span>${isNew ? '<span class="variable-new">New</span>' : ''}</td>
+        <td><div class="variable-value">${escapeHtml(currentValue)}</div>${previousHtml}</td>
+        <td><span class="variable-type">${escapeHtml(v.type || '')}</span></td>`;
+      tbody.appendChild(row);
+    }
+    els.variables.appendChild(table);
+  }
+
+  const stack = step.stack || [];
+  els.callStack.innerHTML = '';
+  if (!stack.length) els.callStack.innerHTML = '<div class="empty-state">No active stack.</div>';
+  for (const frame of stack.slice().reverse()) {
+    const row = document.createElement('div');
+    row.className = 'stack-row';
+    row.textContent = `${frame.function}() • ${frame.file}:${frame.line}`;
+    els.callStack.appendChild(row);
+  }
+}
+els.prevStepBtn.onclick = () => { if (traceIndex > 0) { traceIndex--; renderTrace(); renderStep(); } };
+els.nextStepBtn.onclick = () => { if (traceIndex < trace.length-1) { traceIndex++; maxVisitedTraceIndex = Math.max(maxVisitedTraceIndex, traceIndex); renderTrace(); renderStep(); } };
+els.continueBtn.onclick = () => { if (trace.length) { traceIndex = trace.length-1; maxVisitedTraceIndex = trace.length-1; renderTrace(); renderStep(); } };
+els.clearConsoleBtn.onclick = () => { clearConsole(); if (!awaitingInput) els.consoleInputRow.hidden = true; };
+
+initWorker();
+initMonaco();
+
+</script>
+</body>
+</html>
