@@ -286,6 +286,7 @@ onMounted(() => {
       </div>
       <div class="project-chip" title="Current project"><span class="project-dot" /><div><strong>Python Basics</strong><small>{{ Object.keys(files).length }} files · browser sandbox</small></div></div>
       <div class="toolbar">
+        <NuxtLink class="journey-button" to="/spark-journey">✦ Spark Journey</NuxtLink>
         <button class="btn primary" title="Run the project main file" @click="startRun(false, entryFile)"><span class="btn-icon">▶</span> Run</button>
         <button class="btn ghost" title="Run the selected file" @click="startRun(false)"><span class="btn-icon">▷</span> Run file</button>
         <button class="btn accent" title="Debug the selected file" @click="startRun(true)"><span class="btn-icon debug-icon">◇</span> Debug file</button>
