@@ -5,11 +5,14 @@ let sharedMonacoPromise: Promise<any> | null = null
 </script>
 
 <script setup lang="ts">
+import type { ConditionEvaluation } from '~/composables/usePythonRuntime'
+
 const props = defineProps<{
   modelValue: string
   filename: string
   highlightLine: number | null
   autoSuggestionsEnabled: boolean
+  conditionHighlight?: ConditionEvaluation | null
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -18,6 +21,7 @@ const container = ref<HTMLElement | null>(null)
 let editor: any = null
 let monaco: any = null
 let model: any = null
+let debugDecorations: string[] = []
 
 function loadScript(src: string) {
   return new Promise<void>((resolve, reject) => {
@@ -48,9 +52,9 @@ function createModel(filename: string, value: string) {
   return monaco.editor.createModel(value, 'python', uri)
 }
 
-function highlight(line: number | null) {
+function highlight(line: number | null, condition: ConditionEvaluation | null = props.conditionHighlight || null) {
   if (!editor) return
-  const decorations = line ? [{
+  const decorations: any[] = line ? [{
     range: new monaco.Range(line, 1, line, 1),
     options: {
       isWholeLine: true,
@@ -58,7 +62,25 @@ function highlight(line: number | null) {
       glyphMarginClassName: 'debug-current-glyph',
     },
   }] : []
-  editor.deltaDecorations([], decorations)
+  if (condition && model && condition.line === line) {
+    const sourceLine = model.getLineContent(condition.line)
+    const sourceStart = sourceLine.indexOf(condition.source)
+    if (sourceStart >= 0) {
+      decorations.push({
+        range: new monaco.Range(condition.line, sourceStart + 1, condition.line, sourceStart + condition.source.length + 1),
+        options: {
+          inlineClassName: 'debug-condition-expression',
+          after: {
+            content: condition.result === null ? `  ⇒ ${condition.expression}` : condition.expression === condition.source
+              ? `  = ${condition.result ? 'True' : 'False'}`
+              : `  ⇒ ${condition.expression} = ${condition.result ? 'True' : 'False'}`,
+            inlineClassName: condition.result === null ? 'debug-condition-expression' : condition.result ? 'debug-condition-result-true' : 'debug-condition-result-false',
+          },
+        },
+      })
+    }
+  }
+  debugDecorations = editor.deltaDecorations(debugDecorations, decorations)
   if (line) {
     editor.revealLineInCenter(line)
     editor.setPosition({ lineNumber: line, column: 1 })
@@ -141,8 +163,8 @@ async function init() {
       ariaLabel: 'Python code editor',
       automaticLayout: true,
       minimap: { enabled: false },
-      fontSize: 15,
-      lineHeight: 23,
+      fontSize: 17,
+      lineHeight: 27,
       glyphMargin: true,
       roundedSelection: true,
       padding: { top: 10 },
@@ -169,7 +191,7 @@ watch(() => props.modelValue, (value) => {
   if (model && value !== model.getValue()) model.setValue(value)
 })
 
-watch(() => props.highlightLine, highlight)
+watch(() => [props.highlightLine, props.conditionHighlight], () => highlight(props.highlightLine, props.conditionHighlight || null))
 watch(() => props.autoSuggestionsEnabled, updateSuggestionSettings)
 
 onMounted(init)

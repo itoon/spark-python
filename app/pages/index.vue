@@ -41,6 +41,20 @@ const timelineSteps = computed(() => trace.value.slice(0, maxVisitedTraceIndex.v
 const currentVariables = computed(() => Object.entries(currentStep.value?.locals || {}).sort(([a], [b]) => a.localeCompare(b)))
 const previousVariables = computed(() => trace.value[traceIndex.value - 1]?.locals || {})
 const currentStack = computed(() => (currentStep.value?.stack || []).slice().reverse())
+const conditionTrail = computed(() => {
+  const step = currentStep.value
+  if (!step?.condition) return []
+  let start = traceIndex.value
+  while (start > 0) {
+    const previous = trace.value[start - 1]
+    if (previous.file !== step.file || previous.line !== step.line || previous.function !== step.function) break
+    start--
+  }
+  return trace.value
+    .slice(start, traceIndex.value + 1)
+    .filter(item => item.condition)
+    .map((item, index) => ({ condition: item.condition!, index }))
+})
 const runtimeLabel = computed(() => {
   if (runtime.status.value === 'debugging') return `Debugging ${currentRunEntry.value}…`
   if (runtime.status.value === 'running') return `Running ${currentRunEntry.value}…`
@@ -265,7 +279,7 @@ function nextStep() { if (traceIndex.value < trace.value.length - 1) { maxVisite
 function previousStep() { if (traceIndex.value > 0) renderStep(traceIndex.value - 1) }
 function continueToEnd() { if (trace.value.length) { maxVisitedTraceIndex.value = trace.value.length - 1; renderStep(trace.value.length - 1) } }
 function isProgramEnd(step: TraceStep) { return step.event === 'return' && step.function === '<module>' && step.file === currentRunEntry.value }
-function traceAction(step: TraceStep) { return isProgramEnd(step) ? 'Program finished' : step.event === 'return' ? `Return from ${step.function}()` : step.function === '<module>' ? 'Run line' : `${step.function}()` }
+function traceAction(step: TraceStep) { return isProgramEnd(step) ? 'Program finished' : step.event === 'condition' ? 'Check condition' : step.event === 'return' ? `Return from ${step.function}()` : step.function === '<module>' ? 'Run line' : `${step.function}()` }
 function isChanged(value: VariableValue, key: string) { return !previousVariables.value[key] || previousVariables.value[key].repr !== value.repr }
 
 watch(runtime.lastResult, result => { if (result) handleRunResult(result) })
@@ -317,13 +331,13 @@ onMounted(() => {
       <section class="editor-panel panel">
         <div class="editor-head"><div class="tab active"><span class="tab-py">PY</span><span>{{ activeFile }}</span><span class="tab-dot" /></div><div class="editor-meta">{{ runtimeLabel }}</div></div>
         <ClientOnly fallback-tag="div" fallback="Loading Python editor…">
-          <PythonEditor :key="editorKey" v-model="files[activeFile]" :filename="activeFile" :highlight-line="highlightLine" :auto-suggestions-enabled="autoSuggestionsEnabled" @update:model-value="updateActiveFile" />
+          <PythonEditor :key="editorKey" v-model="files[activeFile]" :filename="activeFile" :highlight-line="highlightLine" :condition-highlight="currentStep?.event === 'condition' ? currentStep.condition : null" :auto-suggestions-enabled="autoSuggestionsEnabled" @update:model-value="updateActiveFile" />
         </ClientOnly>
         <div class="debug-strip"><div class="debug-context"><span class="debug-kicker">DEBUGGER</span><span class="step-label">{{ currentStep ? `Step ${traceIndex + 1} / ${trace.length} • ${currentStep.file}:${currentStep.line}` : 'No debug session' }}</span></div><div class="debug-controls"><button class="btn small debug-control" :disabled="traceIndex <= 0" title="Previous step" @click="previousStep">◀</button><button class="btn small debug-control" :disabled="traceIndex >= trace.length - 1" @click="nextStep">Next step <span>▶</span></button><button class="btn small debug-control" :disabled="traceIndex >= trace.length - 1" @click="continueToEnd">To end <span>»</span></button></div></div>
       </section>
 
       <aside class="inspector panel">
-        <section class="inspector-section"><div class="panel-title-row"><div><span class="eyebrow">LIVE STATE</span><h2>Variables</h2></div><span class="pill muted">{{ currentLineBadge }}</span></div><div class="variables" :class="{ 'empty-state': !currentStep || !currentVariables.length }"><template v-if="!currentStep || !currentVariables.length"><div class="empty-visual">x = ?</div><strong>{{ currentStep ? 'No variables yet' : 'See variables change' }}</strong><span>{{ currentStep ? 'This step has no local variables.' : 'Run Debug and step through your program.' }}</span></template><table v-else class="variable-table"><thead><tr><th>Variable</th><th>Value</th><th>Type</th></tr></thead><tbody><tr v-for="[key, value] in currentVariables" :key="key" :class="{ changed: isChanged(value, key) }"><td><span class="variable-name">{{ key }}</span><span v-if="!previousVariables[key]" class="variable-new">New</span></td><td><div class="variable-value">{{ value.repr }}</div><div v-if="previousVariables[key] && isChanged(value, key)" class="variable-previous">was {{ previousVariables[key].repr }} <span class="arrow">→</span></div></td><td><span class="variable-type">{{ value.type }}</span></td></tr></tbody></table></div></section>
+        <section class="inspector-section"><div class="panel-title-row"><div><span class="eyebrow">LIVE STATE</span><h2>Variables</h2></div><span class="pill muted">{{ currentLineBadge }}</span></div><div class="variables" :class="{ 'empty-state': !currentStep || !currentVariables.length }"><template v-if="!currentStep || !currentVariables.length"><div class="empty-visual">x = ?</div><strong>{{ currentStep ? 'No variables yet' : 'See variables change' }}</strong><span>{{ currentStep ? 'This step has no local variables.' : 'Run Debug and step through your program.' }}</span></template><table v-else class="variable-table"><thead><tr><th>Variable</th><th>Value</th><th>Type</th></tr></thead><tbody><tr v-for="[key, value] in currentVariables" :key="key" :class="{ changed: isChanged(value, key) }"><td><span class="variable-name">{{ key }}</span><span v-if="!previousVariables[key]" class="variable-new">New</span></td><td><div class="variable-value">{{ value.repr }}</div><div v-if="previousVariables[key] && isChanged(value, key)" class="variable-previous">was {{ previousVariables[key].repr }} <span class="arrow">→</span></div></td><td><span class="variable-type">{{ value.type }}</span></td></tr></tbody></table></div><ConditionSteps :steps="conditionTrail" /></section>
         <section class="inspector-section"><div class="section-heading"><span class="eyebrow">FLOW</span><h2>Program path</h2></div><div class="call-stack" :class="{ 'empty-state': !currentStack.length }"><template v-if="!currentStack.length">No active stack.</template><div v-for="frame in currentStack" v-else :key="`${frame.file}:${frame.line}:${frame.function}`" class="stack-row">{{ frame.function }}() • {{ frame.file }}:{{ frame.line }}</div></div></section>
         <section class="inspector-section"><div class="section-heading"><span class="eyebrow">STEPS</span><h2>Execution trace</h2></div><div class="timeline" :class="{ 'empty-state': !timelineSteps.length }"><template v-if="!timelineSteps.length">Execution steps will appear here.</template><div v-for="item in timelineSteps" v-else :key="item.index" class="timeline-row" :class="{ active: item.index === traceIndex }" @click="renderStep(item.index)"><span class="timeline-index">{{ item.index + 1 }}</span><span class="timeline-copy"><span class="timeline-location">{{ item.step.file }}:{{ item.step.line }}</span><span class="timeline-action">{{ traceAction(item.step) }}</span></span><span v-if="item.index === maxVisitedTraceIndex" class="timeline-latest">Latest</span></div></div></section>
       </aside>
