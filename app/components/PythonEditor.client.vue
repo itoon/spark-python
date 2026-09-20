@@ -13,6 +13,8 @@ const props = defineProps<{
   highlightLine: number | null
   autoSuggestionsEnabled: boolean
   conditionHighlight?: ConditionEvaluation | null
+  conditionTrail?: { condition: ConditionEvaluation; index: number }[]
+  showFullConditionSteps?: boolean
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -22,6 +24,8 @@ let editor: any = null
 let monaco: any = null
 let model: any = null
 let debugDecorations: string[] = []
+const bubblePosition = ref({ top: 12, left: 12 })
+const bubbleBelowLine = ref(false)
 
 function loadScript(src: string) {
   return new Promise<void>((resolve, reject) => {
@@ -70,12 +74,7 @@ function highlight(line: number | null, condition: ConditionEvaluation | null = 
         range: new monaco.Range(condition.line, sourceStart + 1, condition.line, sourceStart + condition.source.length + 1),
         options: {
           inlineClassName: 'debug-condition-expression',
-          after: {
-            content: condition.result === null ? `  ⇒ ${condition.expression}` : condition.expression === condition.source
-              ? `  = ${condition.result ? 'True' : 'False'}`
-              : `  ⇒ ${condition.expression} = ${condition.result ? 'True' : 'False'}`,
-            inlineClassName: condition.result === null ? 'debug-condition-expression' : condition.result ? 'debug-condition-result-true' : 'debug-condition-result-false',
-          },
+          overviewRuler: { color: condition.result === null ? '#FFC72C' : condition.result ? '#20CC83' : '#FF6474', position: monaco.editor.OverviewRulerLane.Full },
         },
       })
     }
@@ -84,6 +83,24 @@ function highlight(line: number | null, condition: ConditionEvaluation | null = 
   if (line) {
     editor.revealLineInCenter(line)
     editor.setPosition({ lineNumber: line, column: 1 })
+  }
+  updateConditionBubblePosition(condition)
+}
+
+function updateConditionBubblePosition(condition: ConditionEvaluation | null = props.conditionHighlight || null) {
+  if (!editor || !container.value || !condition) return
+  const sourceLine = model?.getLineContent(condition.line) || ''
+  const sourceStart = sourceLine.indexOf(condition.source)
+  if (sourceStart < 0) return
+  const start = editor.getScrolledVisiblePosition({ lineNumber: condition.line, column: sourceStart + 1 })
+  const end = editor.getScrolledVisiblePosition({ lineNumber: condition.line, column: sourceStart + condition.source.length + 1 })
+  if (!start || !end) return
+  const bubbleWidth = Math.min(280, container.value.clientWidth - 24)
+  const sideLeft = end.left + 18
+  bubbleBelowLine.value = sideLeft + bubbleWidth > container.value.clientWidth - 12
+  bubblePosition.value = {
+    left: bubbleBelowLine.value ? 12 : Math.max(12, sideLeft),
+    top: bubbleBelowLine.value ? start.top + start.height + 10 : start.top + start.height / 2,
   }
 }
 
@@ -175,6 +192,8 @@ async function init() {
     })
     editor.onDidChangeModelContent(() => emit('update:modelValue', editor.getValue()))
     highlight(props.highlightLine)
+    editor.onDidScrollChange(() => updateConditionBubblePosition())
+    editor.onDidLayoutChange(() => updateConditionBubblePosition())
   } catch (error) {
     console.error(error)
   }
@@ -203,5 +222,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="container" class="python-editor" aria-label="Python editor" />
+  <div class="python-editor-shell">
+    <div ref="container" class="python-editor" aria-label="Python editor" />
+    <ConditionSteps v-if="conditionHighlight && conditionTrail?.length" :steps="conditionTrail" :show-full-trail="showFullConditionSteps" class="code-condition-bubble" :class="{ 'below-line': bubbleBelowLine }" :style="{ top: `${bubblePosition.top}px`, left: `${bubblePosition.left}px` }" />
+  </div>
 </template>
