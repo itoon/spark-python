@@ -84,6 +84,7 @@ async function typeChars(
     else if (target === 'error') typedError = value
     else typedPrompt = value
   }
+  if (!source.startsWith(box())) setBox('')
   while (box().length < source.length) {
     if (runId !== token) return
     const next = source[box().length] || ''
@@ -182,8 +183,11 @@ function submitAnswer() {
   if (!value || typing.value) return
   submittedEcho = `${typedPrompt}${value}\n`
   showPrompt.value = false
+  typedPrompt = ''
+  promptText.value = ''
   emit('submit-input', value)
   answer.value = ''
+  if (answerEl.value) answerEl.value.textContent = ''
 }
 
 function onAnswerInput(event: Event) {
