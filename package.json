@@ -16,6 +16,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@iconify-json/lucide": "^1.2.135",
     "@nuxt/ui": "^4.11.1",
     "driver.js": "^1.8.0",
     "fflate": "^0.8.3",

@@ -9,6 +9,8 @@ useHead({
 </script>
 
 <template>
-  <NuxtRouteAnnouncer />
-  <NuxtPage />
+  <UApp>
+    <NuxtRouteAnnouncer />
+    <NuxtPage />
+  </UApp>
 </template>

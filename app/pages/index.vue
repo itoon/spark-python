@@ -690,9 +690,9 @@ onMounted(() => {
                   <p class="text-sm font-bold text-highlighted">Editor settings</p>
                   <p class="mt-1 text-xs text-muted">Customize how the Python editor behaves.</p>
                 </div>
-                <UCheckbox v-model="autoSuggestionsEnabled" label="Auto suggestion" description="Show matching code completions while typing." @update:model-value="saveSettings" />
-                <UCheckbox v-model="showFullConditionSteps" label="Full condition steps" description="Show earlier values together with the current condition step." @update:model-value="saveSettings" />
-                <UCheckbox v-model="retroModeEnabled" label="Retro mode" description="Run opens the CRT monitor. Press RUN on the computer to start the program." @update:model-value="saveSettings" />
+                <UCheckbox v-model="autoSuggestionsEnabled" icon="i-lucide-check" label="Auto suggestion" description="Show matching code completions while typing." @update:model-value="saveSettings" />
+                <UCheckbox v-model="showFullConditionSteps" icon="i-lucide-check" label="Full condition steps" description="Show earlier values together with the current condition step." @update:model-value="saveSettings" />
+                <UCheckbox v-model="retroModeEnabled" icon="i-lucide-check" label="Retro mode" description="Run opens the CRT monitor. Press RUN on the computer to start the program." @update:model-value="saveSettings" />
               </div>
             </template>
           </UPopover>
