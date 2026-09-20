@@ -557,17 +557,22 @@ export function usePythonRuntime() {
     nextWorker.addEventListener('message', () => URL.revokeObjectURL(url), { once: true })
   }
 
+  function canLiveDebug() {
+    // SharedArrayBuffer is only available on cross-origin isolated pages
+    // (COOP + COEP). GitHub Pages cannot set those headers, so Debug falls
+    // back to a precomputed step-through trace there.
+    return typeof SharedArrayBuffer !== 'undefined'
+  }
+
   function run(payload: { files: Record<string, string>; entry: string; trace: boolean; inputs: string[] }) {
     // `waiting` means the running program requested input; the worker is still
     // usable and must accept the next replay with the submitted input history.
     if (!workerReady.value || !worker.value) return false
     if (debugControl) return false
-    if (payload.trace && typeof SharedArrayBuffer === 'undefined') {
-      error.value = 'Live debugging needs an isolated page. Reload after restarting the server.'
-      lastResult.value = { stdout: '', stderr: '', error: error.value, trace: [], needsInput: false }
-      return false
-    }
-    debugControl = payload.trace ? new Int32Array(new SharedArrayBuffer(65544), 0, 2) : null
+    debugControl =
+      payload.trace && canLiveDebug()
+        ? new Int32Array(new SharedArrayBuffer(65544), 0, 2)
+        : null
     debugTrace = []
     stepOverDepth = null
     activeRequest = ++requestId

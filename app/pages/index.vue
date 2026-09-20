@@ -727,8 +727,9 @@ onMounted(() => {
             :filename="activeFile"
             :highlight-line="highlightLine"
             :step="
-              currentStep?.event === 'return' &&
-              currentStep.function === '<module>'
+              debugFinished ||
+              (currentStep?.event === 'return' &&
+                currentStep.function === '<module>')
                 ? null
                 : currentStep
             "

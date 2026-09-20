@@ -12,6 +12,9 @@ test('debug starts paused and only prints as you continue', async ({ page }) => 
     timeout: 120_000,
   })
   await expect(page.locator('.editor-meta')).toContainText('Paused')
+  await expect(page.locator('.console-output')).not.toContainText(
+    'Live debugging needs an isolated page',
+  )
   await expect(page.locator('.console-output')).not.toContainText('Hello, Codi!')
   await expect(page.locator('.console-output')).not.toContainText('Score: 30')
 
@@ -22,5 +25,5 @@ test('debug starts paused and only prints as you continue', async ({ page }) => 
   await expect(page.locator('.step-label')).toContainText('Program finished')
   await expect(page.locator('.console-output')).toContainText('Hello, Codi!')
   await expect(page.locator('.console-output')).toContainText('Score: 30')
-  await expect(page.getByTestId('debug-step-bubble')).not.toContainText('<module>')
+  await expect(page.getByTestId('debug-step-bubble')).toBeHidden()
 })

@@ -74,6 +74,6 @@ test('live input resumes the same execution', async ({ page }) => {
   await page.getByRole('button', { name: /Continue/ }).click()
   await expect(page.locator('.step-label')).toContainText('Program finished')
   await expect(page.locator('.console-output')).toContainText('hello Ada')
-  await expect(page.getByTestId('debug-step-bubble')).not.toContainText('<module>')
+  await expect(page.getByTestId('debug-step-bubble')).toBeHidden()
   expect((await page.locator('.console-output').innerText()).match(/before input/g)).toHaveLength(1)
 })
