@@ -93,8 +93,31 @@ class ConditionTraceTests(unittest.TestCase):
                 self.assertEqual(step['locals'].get('y', {}).get('value'), 20, step)
             self.assertNotEqual(step['function'], '<lambda>')
         conditions = [s['condition']['expression'] for s in result['trace'] if 'condition' in s]
-        self.assertEqual(conditions, ['x > 30', '50 > 30', '50 > 30', 'y == 20', '20 == 20', '20 == 20', 'True and True'])
-        self.assertEqual([s['condition']['result'] for s in result['trace'] if 'condition' in s], [None, None, True, None, None, True, True])
+        self.assertEqual(conditions, [
+            'x > 30', '50 > 30', '50 > 30', 'y == 20', '20 == 20', '20 == 20',
+            'True and True', 'True and True',
+        ])
+        self.assertEqual(
+            [s['condition']['result'] for s in result['trace'] if 'condition' in s],
+            [None, None, True, None, None, True, None, True],
+        )
+        combined = [s['condition'] for s in result['trace'] if s.get('condition', {}).get('expression') == 'True and True']
+        self.assertEqual([c['phase'] for c in combined], ['substitute', 'result'])
+
+    def test_and_condition_shows_combined_operands_before_the_boolean_result(self):
+        result = debug('x = 20\ny = 30\nif x == 20 and y == 30:\n    print("Hello")\n')
+        self.assertIsNone(result['error'])
+        self.assertEqual(result['stdout'], 'Hello\n')
+        conditions = [s['condition'] for s in result['trace'] if 'condition' in s]
+        self.assertEqual([c['expression'] for c in conditions], [
+            'x == 20', '20 == 20', '20 == 20', 'y == 30', '30 == 30', '30 == 30',
+            'True and True', 'True and True',
+        ])
+        self.assertEqual([c['phase'] for c in conditions[-2:]], ['substitute', 'result'])
+        self.assertEqual([c['result'] for c in conditions[-2:]], [None, True])
+        print_index = next(i for i, s in enumerate(result['trace']) if s.get('evaluation', {}).get('expression') == 'print("Hello")')
+        combined_index = next(i for i, s in enumerate(result['trace']) if s.get('condition', {}).get('expression') == 'True and True')
+        self.assertLess(combined_index, print_index)
 
     def test_real_calls_keep_locals_and_hide_only_generated_stack_frames(self):
         result = debug('def check(value):\n    return value == 20\nx = 50\nif x > 30 and check(20):\n    print("yes")\n')
@@ -126,8 +149,10 @@ class ConditionTraceTests(unittest.TestCase):
         self.assertEqual(result['stdout'], '1\n')
         conditions = [s['condition'] for s in result['trace'] if 'condition' in s]
         self.assertTrue(any(c['expression'] == '50 > 30' and c['phase'] == 'substitute' for c in conditions))
-        self.assertEqual(conditions[-2]['expression'], 'True and True')
-        self.assertEqual(conditions[-1]['expression'], 'True or …')
+        combined = [c for c in conditions if c['expression'] == 'True and True']
+        self.assertEqual([c['phase'] for c in combined], ['substitute', 'result'])
+        self.assertEqual([c['expression'] for c in conditions[-2:]], ['True or …', 'True or …'])
+        self.assertEqual([c['phase'] for c in conditions[-2:]], ['substitute', 'result'])
 
     def test_chained_comparison_preserves_short_circuit(self):
         result = debug('x = 50\nif x < 30 < missing_name:\n    print("no")\n')

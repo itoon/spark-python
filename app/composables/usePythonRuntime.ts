@@ -240,6 +240,7 @@ def _cv_boolop(line, source, operator, operands):
     result = values[-1] if values else None
     display = (' ' + operator + ' ').join(_condition_display(value) for value in values)
     if len(values) < len(operands): display += ' ' + operator + ' …'
+    _record_condition(caller, line, display, None, False, source, 'substitute')
     _record_condition(caller, line, display, result, False, source)
     return result
 def _assignment_display(source, locals_snapshot):
@@ -363,10 +364,12 @@ class _CVConditionTransformer(ast.NodeTransformer):
     def visit_If(self, node):
         node = self.generic_visit(node)
         node.test = self._ensure_test(node.test)
+        _cv_managed_lines.add(node.lineno)
         return node
     def visit_While(self, node):
         node = self.generic_visit(node)
         node.test = self._ensure_test(node.test)
+        _cv_managed_lines.add(node.lineno)
         return node
     def _target_labels(self, targets):
         labels = []

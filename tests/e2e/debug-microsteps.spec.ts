@@ -77,3 +77,22 @@ test('live input resumes the same execution', async ({ page }) => {
   await expect(page.getByTestId('debug-step-bubble')).toBeHidden()
   expect((await page.locator('.console-output').innerText()).match(/before input/g)).toHaveLength(1)
 })
+
+test('and-condition shows True and True before the combined result', async ({ page }) => {
+  test.setTimeout(120_000)
+  await startDebug(page, 'x = 20\ny = 30\nif x == 20 and y == 30:\n    print("Hello")\n')
+  const bubble = page.getByTestId('debug-step-bubble')
+  const next = page.getByRole('button', { name: /Next step/ })
+  const seen: string[] = []
+  for (let i = 0; i < 40; i++) {
+    await expect(bubble).toBeVisible()
+    seen.push((await bubble.innerText()).trim())
+    if (seen.at(-1) === 'print("Hello")') break
+    await expect(page.locator('.console-output')).not.toContainText('Hello')
+    await next.click()
+  }
+  expect(seen.join('\n')).toContain('True and True\nTrue\nprint("Hello")')
+  await expect(page.locator('.console-output')).not.toContainText('Hello')
+  await next.click()
+  await expect(page.locator('.console-output')).toContainText('Hello')
+})
