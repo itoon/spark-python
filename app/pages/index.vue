@@ -7,9 +7,7 @@ import type {
 } from "~/composables/usePythonRuntime";
 
 const starterFiles: Record<string, string> = {
-  "main.py": `from player import Player\nfrom utils import calculate_score\n\nplayer = Player("Codi")\nscore = calculate_score(10, 20)\n\nprint(player.greet())\nprint("Score:", score)\n`,
-  "player.py": `class Player:\n    def __init__(self, name):\n        self.name = name\n\n    def greet(self):\n        return f"Hello, {self.name}!"\n`,
-  "utils.py": `def calculate_score(a, b):\n    result = a + b\n    return result\n`,
+  "main.py": `print("Spark Coding Lab")\n`,
 };
 
 const files = ref<Record<string, string>>({ ...starterFiles });
