@@ -30,6 +30,7 @@ const modalError = ref("");
 const settingsOpen = ref(false);
 const autoSuggestionsEnabled = ref(true);
 const showFullConditionSteps = ref(false);
+const retroModeEnabled = ref(true);
 const activeInputs = ref<string[]>([]);
 const awaitingInput = ref(false);
 const inputPrompt = ref("");
@@ -38,8 +39,9 @@ const activeRunTraceMode = ref(false);
 const trace = ref<TraceStep[]>([]);
 const traceIndex = ref(-1);
 const maxVisitedTraceIndex = ref(-1);
-const toastMessage = ref("");
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const retroOpen = ref(false);
+const retroSession = ref(false);
+const retroResult = ref<PythonRunResult | null>(null);
 
 const sortedFiles = computed(() =>
   Object.keys(files.value).sort((a, b) =>
@@ -154,6 +156,8 @@ function loadSettings() {
     localStorage.getItem("cv-python-lab-auto-suggestions") !== "false";
   showFullConditionSteps.value =
     localStorage.getItem("cv-python-lab-full-condition-steps") === "true";
+  retroModeEnabled.value =
+    localStorage.getItem("cv-python-lab-retro-mode") !== "false";
 }
 
 function saveSettings() {
@@ -166,6 +170,11 @@ function saveSettings() {
     "cv-python-lab-full-condition-steps",
     String(showFullConditionSteps.value),
   );
+  localStorage.setItem(
+    "cv-python-lab-retro-mode",
+    String(retroModeEnabled.value),
+  );
+  if (!retroModeEnabled.value && retroOpen.value) closeRetro();
 }
 
 function showToast(message: string) {
@@ -268,6 +277,10 @@ function updateTrace(result: PythonRunResult, index = 0) {
 }
 
 function startRun(traceMode: boolean, runEntry = activeFile.value) {
+  if (!retroSession.value) {
+    retroOpen.value = false;
+    retroResult.value = null;
+  }
   if (runtime.status.value === "loading")
     return showToast("Python runtime is still loading");
   if (runtime.status.value === "failed")
@@ -300,12 +313,49 @@ function startRun(traceMode: boolean, runEntry = activeFile.value) {
   });
 }
 
+function clickRun() {
+  if (retroModeEnabled.value) return openRetro();
+  startRun(false, entryFile.value);
+}
+
+function openRetro() {
+  if (runtime.status.value === "loading")
+    return showToast("Python runtime is still loading");
+  if (runtime.status.value === "failed")
+    return showToast("Python runtime failed to start");
+  retroSession.value = true;
+  retroOpen.value = true;
+  retroResult.value = null;
+}
+
+function runRetroProgram() {
+  if (!retroOpen.value) openRetro();
+  if (!retroOpen.value) return;
+  retroResult.value = null;
+  startRun(false, entryFile.value);
+}
+
+function closeRetro() {
+  retroOpen.value = false;
+  retroSession.value = false;
+  if (
+    runtime.status.value === "running" ||
+    runtime.status.value === "waiting"
+  )
+    stopRun();
+}
+
 function stopRun() {
   awaitingInput.value = false;
   activeInputs.value = [];
   appendConsole("\nExecution stopped.\n", "console-error");
   resetDebug();
   runtime.stop();
+}
+
+function submitRetroInput(value: string) {
+  inputValue.value = value;
+  dispatchInput();
 }
 
 function debugStepsFromResult(result: PythonRunResult) {
@@ -350,6 +400,7 @@ function handleDebugResult(result: PythonRunResult) {
 }
 
 function handleRunResult(result: PythonRunResult) {
+  if (retroSession.value) retroResult.value = result;
   if (activeRunTraceMode.value) {
     handleDebugResult(result);
     return;
@@ -622,7 +673,7 @@ onMounted(() => {
       </UButton>
       <div class="col-span-full flex min-w-0 flex-wrap items-center justify-end gap-2 min-[961px]:col-start-2 min-[961px]:row-start-1 min-[1181px]:col-start-3 min-[1181px]:col-span-1 min-[1181px]:row-start-1 max-[680px]:grid max-[680px]:grid-cols-2">
         <div class="flex min-w-0 items-center gap-1.5 border-l border-blue-200/15 pl-2 max-[680px]:border-l-0 max-[680px]:pl-0">
-          <UButton color="success" variant="solid" icon="i-lucide-play" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold max-[680px]:flex-1" title="Run the project main file" @click="startRun(false, entryFile)">Run</UButton>
+          <UButton color="success" variant="solid" icon="i-lucide-play" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold max-[680px]:flex-1" title="Run the project main file" @click="clickRun">Run</UButton>
           <UButton color="neutral" variant="soft" icon="i-lucide-play" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold" title="Run the selected file" @click="startRun(false)">Run file</UButton>
         </div>
         <div class="flex min-w-0 items-center gap-1.5 border-l border-blue-200/15 pl-2 max-[680px]:border-l-0 max-[680px]:pl-0">
@@ -641,6 +692,7 @@ onMounted(() => {
                 </div>
                 <UCheckbox v-model="autoSuggestionsEnabled" label="Auto suggestion" description="Show matching code completions while typing." @update:model-value="saveSettings" />
                 <UCheckbox v-model="showFullConditionSteps" label="Full condition steps" description="Show earlier values together with the current condition step." @update:model-value="saveSettings" />
+                <UCheckbox v-model="retroModeEnabled" label="Retro mode" description="Run opens the CRT monitor. Press RUN on the computer to start the program." @update:model-value="saveSettings" />
               </div>
             </template>
           </UPopover>
@@ -1007,5 +1059,17 @@ onMounted(() => {
       </form>
     </div>
     <div class="toast" :class="{ show: toastMessage }">{{ toastMessage }}</div>
+    <RetroCrtRunner
+      :open="retroOpen"
+      :running="runtime.status === 'running'"
+      :waiting="retroSession && awaitingInput"
+      :stdout="retroResult?.stdout || ''"
+      :stderr="retroResult?.stderr || ''"
+      :error="retroResult?.error || null"
+      :input-prompt="inputPrompt"
+      @close="closeRetro"
+      @run="runRetroProgram"
+      @submit-input="submitRetroInput"
+    />
   </main>
 </template>
