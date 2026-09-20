@@ -17,7 +17,6 @@ const projectName = ref("Python Basics");
 const activeFile = ref("main.py");
 const entryFile = ref("main.py");
 const highlightLine = ref<number | null>(null);
-const editorKey = ref(0);
 const runtime = usePythonRuntime();
 const fileInput = ref<HTMLInputElement | null>(null);
 const consoleLines = ref<{ text: string; tone?: string }[]>([
@@ -52,11 +51,7 @@ const sortedFiles = computed(() =>
 const currentStep = computed(() => trace.value[traceIndex.value]);
 const currentLineBadge = computed(() =>
   currentStep.value
-    ? currentStep.value.event === "return" &&
-      currentStep.value.function === "<module>" &&
-      currentStep.value.file === currentRunEntry.value
-      ? "Done"
-      : `${currentStep.value.file}:${currentStep.value.line}`
+    ? `${currentStep.value.file}:${currentStep.value.line}`
     : "—",
 );
 const timelineSteps = computed(() =>
@@ -95,6 +90,21 @@ const conditionTrail = computed(() => {
     .filter((item) => item.condition)
     .map((item, index) => ({ condition: item.condition!, index }));
 });
+const debugActive = ref(false);
+const canStepForward = computed(
+  () => debugActive.value && (traceIndex.value < trace.value.length - 1 || runtime.status.value === 'paused'),
+);
+const debugFinished = computed(
+  () =>
+    debugActive.value &&
+    !!currentStep.value &&
+    traceIndex.value >= trace.value.length - 1 &&
+    !runtime.lastResult.value?.needsInput &&
+    runtime.lastResult.value?.paused !== true &&
+    runtime.status.value !== "paused" &&
+    runtime.status.value !== "debugging" &&
+    runtime.status.value !== "waiting",
+);
 const runtimeLabel = computed(() => {
   if (runtime.status.value === "debugging")
     return `Debugging ${currentRunEntry.value}…`;
@@ -102,7 +112,10 @@ const runtimeLabel = computed(() => {
     return `Running ${currentRunEntry.value}…`;
   if (runtime.status.value === "failed") return "Runtime: failed";
   if (runtime.status.value === "loading") return "Runtime: loading Pyodide…";
-  if (runtime.status.value === "waiting") return "Runtime: waiting for input…";
+  if (awaitingInput.value || runtime.status.value === "waiting")
+    return "Runtime: waiting for input…";
+  if (debugFinished.value) return `Debug finished • ${currentRunEntry.value}`;
+  if (debugActive.value) return `Paused • ${currentLineBadge.value}`;
   return "Runtime: ready";
 });
 
@@ -177,7 +190,6 @@ function switchFile(name: string, line: number | null = null) {
   if (!(name in files.value)) return;
   activeFile.value = name;
   highlightLine.value = line;
-  editorKey.value++;
 }
 
 function updateActiveFile(value: string) {
@@ -186,10 +198,50 @@ function updateActiveFile(value: string) {
 }
 
 function resetDebug() {
+  debugActive.value = false;
   trace.value = [];
   traceIndex.value = -1;
   maxVisitedTraceIndex.value = -1;
   highlightLine.value = null;
+}
+
+function sliceIo(source: string, length: number | undefined, atEnd: boolean) {
+  if (typeof length === "number") return Array.from(source).slice(0, Math.max(0, length)).join('');
+  return atEnd ? source : "";
+}
+
+function syncDebugConsole() {
+  const result = runtime.lastResult.value;
+  if (!result || !debugActive.value) return;
+  const step = currentStep.value;
+  const atEnd = traceIndex.value >= trace.value.length - 1;
+  const stdout = sliceIo(result.stdout || "", step?.stdoutLen, atEnd);
+  const stderr = sliceIo(result.stderr || "", step?.stderrLen, atEnd);
+  clearConsole();
+  appendConsole(`Debugging ${currentRunEntry.value}…\n`, "console-dim");
+  appendConsole(stdout);
+  appendConsole(stderr, "console-error");
+  if (atEnd && !result.needsInput && !result.paused) {
+    appendConsole(result.error || "", "console-error");
+    if (result.traceTruncated)
+      appendConsole("\nTrace stopped at 10,000 steps.\n", "console-error");
+    if (!stdout && !stderr && !result.error)
+      appendConsole("Program finished with no output.\n", "console-dim");
+  }
+}
+
+function syncDebugInput() {
+  const result = runtime.lastResult.value;
+  const atInput =
+    debugActive.value &&
+    !!result?.needsInput &&
+    trace.value.length > 0 &&
+    traceIndex.value === trace.value.length - 1;
+  awaitingInput.value = atInput;
+  inputPrompt.value = atInput ? result?.inputPrompt || "" : "";
+  if (atInput) runtime.status.value = "waiting";
+  else if (debugActive.value && !result?.live && runtime.status.value === "waiting")
+    runtime.status.value = "ready";
 }
 
 function renderStep(index: number) {
@@ -197,14 +249,24 @@ function renderStep(index: number) {
   if (!step) return;
   traceIndex.value = index;
   switchFile(step.file, step.line);
+  if (debugActive.value) {
+    syncDebugConsole();
+    syncDebugInput();
+  }
+}
+
+function revealThrough(index: number) {
+  if (!trace.value[index]) return;
+  maxVisitedTraceIndex.value = Math.max(maxVisitedTraceIndex.value, index);
+  renderStep(index);
 }
 
 function updateTrace(result: PythonRunResult, index = 0) {
   trace.value = result.trace || [];
   if (!trace.value.length) return;
-  traceIndex.value = Math.min(Math.max(index, 0), trace.value.length - 1);
-  maxVisitedTraceIndex.value = traceIndex.value;
-  renderStep(traceIndex.value);
+  const nextIndex = Math.min(Math.max(index, 0), trace.value.length - 1);
+  maxVisitedTraceIndex.value = Math.max(maxVisitedTraceIndex.value, nextIndex);
+  renderStep(nextIndex);
 }
 
 function startRun(traceMode: boolean, runEntry = activeFile.value) {
@@ -214,7 +276,9 @@ function startRun(traceMode: boolean, runEntry = activeFile.value) {
     return showToast("Python runtime failed to start");
   if (
     runtime.status.value === "running" ||
-    runtime.status.value === "debugging"
+    runtime.status.value === "debugging" ||
+    runtime.status.value === "paused" ||
+    (runtime.status.value === "waiting" && activeRunTraceMode.value)
   ) {
     return showToast("Stop the current run before starting another");
   }
@@ -246,20 +310,56 @@ function stopRun() {
   runtime.stop();
 }
 
+function debugStepsFromResult(result: PythonRunResult) {
+  const steps = [...(result.trace || [])];
+  if (result.needsInput && !result.live) {
+    // Raising the pause exception unwinds the current frames, so the tracer
+    // can append synthetic return events even though the program is not done.
+    while (steps.at(-1)?.event === "return") steps.pop();
+  }
+  return steps.filter(
+    (step) => !(step.event === "return" && step.function === "<module>"),
+  );
+}
+
+function handleDebugResult(result: PythonRunResult) {
+  const steps = debugStepsFromResult(result);
+  if (!steps.length) {
+    resetDebug();
+    clearConsole();
+    appendConsole(`Debugging ${currentRunEntry.value}…\n`, "console-dim");
+    appendConsole(result.stdout);
+    appendConsole(result.stderr, "console-error");
+    appendConsole(result.error || "", "console-error");
+    if (result.needsInput) {
+      awaitingInput.value = true;
+      inputPrompt.value = result.inputPrompt || "";
+      runtime.status.value = "waiting";
+      return;
+    }
+    if (!result.stdout && !result.stderr && !result.error)
+      appendConsole("Program finished with no output.\n", "console-dim");
+    return;
+  }
+  const resumeIndex = result.live ? steps.length - 1 :
+    trace.value.length && traceIndex.value >= 0
+      ? Math.min(traceIndex.value, steps.length - 1)
+      : 0;
+  debugActive.value = true;
+  awaitingInput.value = false;
+  inputPrompt.value = "";
+  updateTrace({ ...result, trace: steps }, resumeIndex);
+}
+
 function handleRunResult(result: PythonRunResult) {
+  if (activeRunTraceMode.value) {
+    handleDebugResult(result);
+    return;
+  }
   clearConsole();
   appendConsole(result.stdout);
   appendConsole(result.stderr, "console-error");
   if (result.needsInput) {
-    // Keep the partial debug session visible while Python is paused at input().
-    // The next submission replays the program and replaces it with the full trace.
-    if (activeRunTraceMode.value) {
-      const partialTrace = [...(result.trace || [])];
-      // Raising the pause exception unwinds the current frames, so the tracer
-      // can append synthetic return events even though the program is not done.
-      while (partialTrace.at(-1)?.event === "return") partialTrace.pop();
-      updateTrace({ ...result, trace: partialTrace }, partialTrace.length - 1);
-    }
     awaitingInput.value = true;
     inputPrompt.value = result.inputPrompt || "";
     runtime.status.value = "waiting";
@@ -271,15 +371,20 @@ function handleRunResult(result: PythonRunResult) {
   appendConsole(result.error || "", "console-error");
   if (!result.stdout && !result.stderr && !result.error)
     appendConsole("Program finished with no output.\n", "console-dim");
-  if (result.trace?.length) {
-    updateTrace(result);
-    if (result.traceTruncated)
-      appendConsole("\nTrace stopped at 10,000 steps.\n", "console-error");
-  }
 }
 
 function dispatchInput() {
   if (!awaitingInput.value) return;
+  if (activeRunTraceMode.value && runtime.lastResult.value?.live) {
+    if (!runtime.submitDebugInput(inputValue.value)) {
+      showToast('Input is too long or the debugger is not waiting');
+      return;
+    }
+    inputValue.value = '';
+    awaitingInput.value = false;
+    inputPrompt.value = '';
+    return;
+  }
   const submittedPrompt = inputPrompt.value;
   activeInputs.value = [...activeInputs.value, inputValue.value];
   inputValue.value = "";
@@ -426,22 +531,31 @@ function downloadProjectZip() {
 }
 
 function nextStep() {
-  if (traceIndex.value < trace.value.length - 1) {
-    maxVisitedTraceIndex.value = Math.max(
-      maxVisitedTraceIndex.value,
-      traceIndex.value + 1,
-    );
-    renderStep(traceIndex.value + 1);
+  if (traceIndex.value < trace.value.length - 1) revealThrough(traceIndex.value + 1);
+  else runtime.resumeDebug();
+}
+function stepOver() {
+  if (!canStepForward.value) return;
+  if (traceIndex.value === trace.value.length - 1) {
+    runtime.stepOver(currentStep.value?.stack.length || 0);
+    return;
   }
+  const depth = currentStep.value?.stack?.length || 0;
+  let index = traceIndex.value + 1;
+  while (
+    index < trace.value.length - 1 &&
+    (trace.value[index]?.stack?.length || 0) > depth
+  ) {
+    index++;
+  }
+  revealThrough(index);
 }
 function previousStep() {
   if (traceIndex.value > 0) renderStep(traceIndex.value - 1);
 }
 function continueToEnd() {
-  if (trace.value.length) {
-    maxVisitedTraceIndex.value = trace.value.length - 1;
-    renderStep(trace.value.length - 1);
-  }
+  if (trace.value.length) revealThrough(trace.value.length - 1);
+  runtime.resumeDebug(true);
 }
 function isProgramEnd(step: TraceStep) {
   return (
@@ -453,6 +567,8 @@ function isProgramEnd(step: TraceStep) {
 function traceAction(step: TraceStep) {
   return isProgramEnd(step)
     ? "Program finished"
+    : step.event === "assignment"
+      ? "Update variable"
     : step.event === "condition"
       ? "Check condition"
       : step.event === "return"
@@ -512,7 +628,7 @@ onMounted(() => {
           <UButton color="neutral" variant="soft" icon="i-lucide-play" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold" title="Run the selected file" @click="startRun(false)">Run file</UButton>
         </div>
         <div class="flex min-w-0 items-center gap-1.5 border-l border-blue-200/15 pl-2 max-[680px]:border-l-0 max-[680px]:pl-0">
-          <UButton color="warning" variant="solid" icon="i-lucide-bug" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold text-[#2b2200] max-[680px]:flex-1" title="Debug the selected file" @click="startRun(true)">Debug file</UButton>
+          <UButton color="warning" variant="solid" icon="i-lucide-bug" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold text-[#2b2200] max-[680px]:flex-1" title="Debug the selected file, paused at the first line" @click="startRun(true)">Debug file</UButton>
           <UButton color="error" variant="soft" icon="i-lucide-square" class="h-11 min-w-0 whitespace-nowrap rounded-xl px-3 font-bold" @click="stopRun">Stop</UButton>
         </div>
         <div class="flex min-w-0 items-center gap-1.5 border-l border-blue-200/15 pl-2 max-[680px]:border-l-0 max-[680px]:pl-0">
@@ -607,10 +723,17 @@ onMounted(() => {
         </div>
         <ClientOnly fallback-tag="div" fallback="Loading Python editor…">
           <PythonEditor
-            :key="editorKey"
             v-model="files[activeFile]"
             :filename="activeFile"
             :highlight-line="highlightLine"
+            :step="
+              currentStep?.event === 'return' &&
+              currentStep.function === '<module>'
+                ? null
+                : currentStep
+            "
+            :trace-index="traceIndex"
+            :trace-length="trace.length"
             :condition-highlight="
               currentStep?.event === 'condition' ? currentStep.condition : null
             "
@@ -625,7 +748,9 @@ onMounted(() => {
             <span class="debug-kicker">DEBUGGER</span
             ><span class="step-label">{{
               currentStep
-                ? `Step ${traceIndex + 1} / ${trace.length} • ${currentStep.file}:${currentStep.line}`
+                ? debugFinished
+                  ? `Step ${traceIndex + 1} / ${trace.length} • Program finished`
+                  : `Paused • Step ${traceIndex + 1} / ${trace.length} • ${currentStep.file}:${currentStep.line}`
                 : "No debug session"
             }}</span>
           </div>
@@ -639,16 +764,25 @@ onMounted(() => {
               ◀</button
             ><button
               class="btn small debug-control"
-              :disabled="traceIndex >= trace.length - 1"
+              :disabled="!canStepForward"
+              title="Step into the current line"
               @click="nextStep"
             >
               Next step <span>▶</span></button
             ><button
               class="btn small debug-control"
-              :disabled="traceIndex >= trace.length - 1"
+              :disabled="!canStepForward"
+              title="Step over function calls on this line"
+              @click="stepOver"
+            >
+              Step over</button
+            ><button
+              class="btn small debug-control"
+              :disabled="!canStepForward"
+              title="Continue until the program pauses or finishes"
               @click="continueToEnd"
             >
-              To end <span>»</span>
+              Continue <span>»</span>
             </button>
           </div>
         </div>
